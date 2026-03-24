@@ -1,0 +1,111 @@
+export type XY = { x: number; y: number }
+
+export type RoutePoint = XY & { z?: number }
+
+export type PortPoint = XY & {
+  connectionName?: string
+  portPointId?: string
+  z?: number
+}
+
+export type HdRoute = {
+  capacityMeshNodeId?: string
+  connectionName?: string
+  rootConnectionName?: string
+  route?: RoutePoint[]
+  traceThickness?: number
+  vias?: Array<{ x: number; y: number; diameter?: number }>
+  viaDiameter?: number
+}
+
+export type Obstacle = {
+  type?: string
+  center?: XY
+  width?: number
+  height?: number
+}
+
+export type BoundarySide = "left" | "right" | "top" | "bottom"
+
+export type BoundaryRect = {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+  width: number
+  height: number
+  center: XY
+}
+
+export type Segment = {
+  start: RoutePoint
+  end: RoutePoint
+  routeIndex: number
+  pointIndex: number
+  thickness: number
+  layer: "top" | "bottom"
+}
+
+export type VisualizationFrame = {
+  title: string
+  routes: HdRoute[]
+  originalRoutes?: HdRoute[]
+  activeSide?: BoundarySide
+  candidateRouteNames?: string[]
+  overlayLines?: Array<{
+    points: XY[]
+    strokeColor: string
+    strokeWidth: number
+    label: string
+  }>
+  overlayRects?: Array<{
+    center: XY
+    width: number
+    height: number
+    stroke: string
+    fill: string
+    label: string
+  }>
+  overlayPoints?: Array<{ x: number; y: number; color: string; label: string }>
+  overlayArrows?: Array<{
+    start: XY
+    end: XY
+    color: string
+    doubleSided?: boolean
+  }>
+}
+
+export type DatasetSample = {
+  nodeWithPortPoints?: {
+    capacityMeshNodeId?: string
+    center?: XY
+    width?: number
+    height?: number
+    portPoints?: PortPoint[]
+  }
+  nodeHdRoutes?: HdRoute[]
+  adjacentObstacles?: Obstacle[]
+}
+
+export interface HighDensityRepairSolverParams {
+  sample?: DatasetSample
+  margin?: number
+}
+
+export type BuildRepairFramesResult = {
+  boundary: BoundaryRect | null
+  baseRoutes: HdRoute[]
+  repairedRoutes: HdRoute[]
+  frames: VisualizationFrame[]
+  margin: number
+  gridStep: number
+}
+
+export type EvaluateRouteMoveResult = {
+  isTwoPointRoute: boolean
+  movableIndexes: number[]
+  candidateRouteIndexes: Set<number>
+  candidateRoutes: HdRoute[]
+  rejected: boolean
+  rejectionReason: string
+}
