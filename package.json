@@ -11,7 +11,7 @@
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
     "format": "biome check --write .",
-    "formatcheck": "biome check .",
+    "format:check": "biome check .",
     "start": "cosmos",
     "build:site": "cosmos-export"
   },
