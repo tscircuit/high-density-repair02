@@ -1,10 +1,7 @@
 import type { DatasetSample } from "lib/high-density-repair-solver"
 import { HighDensityRepairSolver } from "lib/high-density-repair-solver"
 
-export const renderInitialState = async (
-  sampleName: string,
-  margin = 0.4,
-) => {
+export const renderInitialState = async (sampleName: string, margin = 0.4) => {
   const samplePath = new URL(
     `../../node_modules/dataset-hd08/samples/${sampleName}.json`,
     import.meta.url,

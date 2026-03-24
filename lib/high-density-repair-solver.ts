@@ -3,7 +3,11 @@ import type { GraphicsObject } from "graphics-debug"
 
 type XY = { x: number; y: number }
 type RoutePoint = XY & { z?: number }
-type PortPoint = XY & { connectionName?: string; portPointId?: string; z?: number }
+type PortPoint = XY & {
+  connectionName?: string
+  portPointId?: string
+  z?: number
+}
 type HdRoute = {
   capacityMeshNodeId?: string
   connectionName?: string
@@ -236,17 +240,25 @@ const isObstacleNearSide = (
 
   switch (side) {
     case "left":
-      return bounds.maxX >= boundary.minX - EPSILON &&
+      return (
+        bounds.maxX >= boundary.minX - EPSILON &&
         bounds.minX <= boundary.minX + margin + EPSILON
+      )
     case "right":
-      return bounds.minX <= boundary.maxX + EPSILON &&
+      return (
+        bounds.minX <= boundary.maxX + EPSILON &&
         bounds.maxX >= boundary.maxX - margin - EPSILON
+      )
     case "top":
-      return bounds.minY <= boundary.maxY + EPSILON &&
+      return (
+        bounds.minY <= boundary.maxY + EPSILON &&
         bounds.maxY >= boundary.maxY - margin - EPSILON
+      )
     case "bottom":
-      return bounds.maxY >= boundary.minY - EPSILON &&
+      return (
+        bounds.maxY >= boundary.minY - EPSILON &&
         bounds.minY <= boundary.minY + margin + EPSILON
+      )
   }
 }
 
@@ -263,7 +275,10 @@ const getRouteMovableIndexes = (
 
   while (
     firstMovableIndex < points.length - 1 &&
-    pointsCoincide(points[firstMovableIndex] as RoutePoint, points[0] as RoutePoint)
+    pointsCoincide(
+      points[firstMovableIndex] as RoutePoint,
+      points[0] as RoutePoint,
+    )
   ) {
     firstMovableIndex += 1
   }
@@ -341,11 +356,7 @@ const dedupeRoutePoints = (points: RoutePoint[]) => {
 
   for (const point of points) {
     const previous = result[result.length - 1]
-    if (
-      previous &&
-      previous.z === point.z &&
-      pointsCoincide(previous, point)
-    ) {
+    if (previous && previous.z === point.z && pointsCoincide(previous, point)) {
       continue
     }
     result.push(point)
@@ -616,7 +627,7 @@ const segmentsIntersect = (a1: XY, a2: XY, b1: XY, b2: XY) => {
   if (Math.abs(o3) <= EPSILON && onSegment(b1, a1, b2)) return true
   if (Math.abs(o4) <= EPSILON && onSegment(b1, a2, b2)) return true
 
-  return (o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)
+  return o1 > 0 !== o2 > 0 && o3 > 0 !== o4 > 0
 }
 
 const segmentDistance = (a1: XY, a2: XY, b1: XY, b2: XY) => {
@@ -651,7 +662,11 @@ const findConflictingRouteIndexes = (
   for (let index = 0; index < allSegments.length; index += 1) {
     const first = allSegments[index]
 
-    for (let otherIndex = index + 1; otherIndex < allSegments.length; otherIndex += 1) {
+    for (
+      let otherIndex = index + 1;
+      otherIndex < allSegments.length;
+      otherIndex += 1
+    ) {
       const second = allSegments[otherIndex]
 
       if (first.routeIndex === second.routeIndex) continue
@@ -799,25 +814,37 @@ const createMovementArrow = (
     case "left":
       return {
         start: { x: boundary.minX + amount / 4, y: boundary.center.y },
-        end: { x: boundary.minX + amount / 4 + direction.x, y: boundary.center.y },
+        end: {
+          x: boundary.minX + amount / 4 + direction.x,
+          y: boundary.center.y,
+        },
         color: CANDIDATE_STROKE,
       }
     case "right":
       return {
         start: { x: boundary.maxX - amount / 4, y: boundary.center.y },
-        end: { x: boundary.maxX - amount / 4 + direction.x, y: boundary.center.y },
+        end: {
+          x: boundary.maxX - amount / 4 + direction.x,
+          y: boundary.center.y,
+        },
         color: CANDIDATE_STROKE,
       }
     case "top":
       return {
         start: { x: boundary.center.x, y: boundary.maxY - amount / 4 },
-        end: { x: boundary.center.x, y: boundary.maxY - amount / 4 + direction.y },
+        end: {
+          x: boundary.center.x,
+          y: boundary.maxY - amount / 4 + direction.y,
+        },
         color: CANDIDATE_STROKE,
       }
     case "bottom":
       return {
         start: { x: boundary.center.x, y: boundary.minY + amount / 4 },
-        end: { x: boundary.center.x, y: boundary.minY + amount / 4 + direction.y },
+        end: {
+          x: boundary.center.x,
+          y: boundary.minY + amount / 4 + direction.y,
+        },
         color: CANDIDATE_STROKE,
       }
   }
@@ -931,7 +958,13 @@ export class HighDensityRepairSolver extends BaseSolver {
         activeSide: side,
         overlayLines: createBoundaryGridLines(boundary, gridStep, side),
         overlayRects: [
-          createSideStripRect(boundary, side, margin, HIGHLIGHT_COLOR, `strip:${side}`),
+          createSideStripRect(
+            boundary,
+            side,
+            margin,
+            HIGHLIGHT_COLOR,
+            `strip:${side}`,
+          ),
         ],
         overlayArrows: [createMovementArrow(boundary, side, moveAmount)],
       })
@@ -984,28 +1017,30 @@ export class HighDensityRepairSolver extends BaseSolver {
         }
 
         if (!rejected) {
-          const sideRegression = Array.from(candidateRouteIndexes).some((index) => {
-            const previousRoute = this.repairedRoutes[index]
-            const nextRoute = candidateRoutes[index]
-            const otherSides = sides.filter((otherSide) => otherSide !== side)
+          const sideRegression = Array.from(candidateRouteIndexes).some(
+            (index) => {
+              const previousRoute = this.repairedRoutes[index]
+              const nextRoute = candidateRoutes[index]
+              const otherSides = sides.filter((otherSide) => otherSide !== side)
 
-            return otherSides.some((otherSide) => {
-              const previousExposure = getRouteSideExposure(
-                previousRoute,
-                boundary,
-                otherSide,
-                margin,
-              )
-              const nextExposure = getRouteSideExposure(
-                nextRoute,
-                boundary,
-                otherSide,
-                margin,
-              )
+              return otherSides.some((otherSide) => {
+                const previousExposure = getRouteSideExposure(
+                  previousRoute,
+                  boundary,
+                  otherSide,
+                  margin,
+                )
+                const nextExposure = getRouteSideExposure(
+                  nextRoute,
+                  boundary,
+                  otherSide,
+                  margin,
+                )
 
-              return nextExposure > previousExposure + EPSILON
-            })
-          })
+                return nextExposure > previousExposure + EPSILON
+              })
+            },
+          )
 
           if (sideRegression) {
             rejected = true
@@ -1014,9 +1049,7 @@ export class HighDensityRepairSolver extends BaseSolver {
         }
 
         const routeNames = Array.from(candidateRouteIndexes).map(
-          (index) =>
-            candidateRoutes[index].connectionName ??
-            `route-${index}`,
+          (index) => candidateRoutes[index].connectionName ?? `route-${index}`,
         )
 
         this.frames.push({
@@ -1028,7 +1061,10 @@ export class HighDensityRepairSolver extends BaseSolver {
           candidateRouteNames: routeNames,
           overlayLines: [
             ...createBoundaryGridLines(boundary, gridStep, side),
-            ...createOverlayLinesForRoutes(candidateRoutes, candidateRouteIndexes),
+            ...createOverlayLinesForRoutes(
+              candidateRoutes,
+              candidateRouteIndexes,
+            ),
           ],
           overlayRects: [
             createSideStripRect(
@@ -1067,11 +1103,10 @@ export class HighDensityRepairSolver extends BaseSolver {
     const sample = this.params.sample
     const node = sample?.nodeWithPortPoints
     const obstacles = sample?.adjacentObstacles ?? []
-    const frame =
-      this.frames[this.currentFrameIndex] ?? {
-        title: "HighDensityRepair02",
-        routes: cloneRoutes(sample?.nodeHdRoutes ?? []),
-      }
+    const frame = this.frames[this.currentFrameIndex] ?? {
+      title: "HighDensityRepair02",
+      routes: cloneRoutes(sample?.nodeHdRoutes ?? []),
+    }
     const boundary = getBoundaryRect(node)
 
     const nodeRect =
