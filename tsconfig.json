@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
+    "types": ["bun-types", "vite/client"],
     "target": "ES2020",
     "module": "ESNext",
     "moduleDetection": "force",
@@ -24,5 +25,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["lib", "cosmos.decorator.tsx", "vite.config.ts", "tests"]
+  "include": ["lib", "fixtures", "tests", "*.ts", "*.tsx"]
 }

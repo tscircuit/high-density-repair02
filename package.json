@@ -29,9 +29,7 @@
     "react-cosmos-plugin-vite": "^7.2.0",
     "react-dom": "^19.2.4",
     "typescript": "^5",
-    "vite": "^8.0.2"
-  },
-  "dependencies": {
+    "vite": "^8.0.2",
     "dataset-hd08": "https://github.com/tscircuit/dataset-hd08"
   }
 }

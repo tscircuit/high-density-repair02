@@ -1,10 +1,12 @@
 import { GenericSolverDebugger } from "@tscircuit/solver-utils/react"
 import { datasetProblems } from "fixtures/dataset"
 import { HighDensityRepairSolver } from "lib/high-density-repair-solver"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 export default function AllDatasetProblemsFixture() {
   const [sampleNumberInput, setSampleNumberInput] = useState("1")
+  const [sample, setSample] = useState<unknown>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const maxSampleNumber = datasetProblems.length
   const parsedSampleNumber = Number.parseInt(sampleNumberInput, 10)
@@ -13,6 +15,40 @@ export default function AllDatasetProblemsFixture() {
     : 1
   const selectedProblem =
     datasetProblems[safeSampleNumber - 1] ?? datasetProblems[0]
+
+  useEffect(() => {
+    if (!selectedProblem) {
+      setSample(null)
+      setLoadError(null)
+      return
+    }
+
+    let cancelled = false
+
+    setSample(null)
+    setLoadError(null)
+
+    void selectedProblem
+      .loadSample()
+      .then((nextSample) => {
+        if (!cancelled) {
+          setSample(nextSample)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load dataset sample.",
+          )
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedProblem])
 
   if (!selectedProblem) {
     return <div>Dataset is empty.</div>
@@ -55,12 +91,16 @@ export default function AllDatasetProblemsFixture() {
         </span>
       </div>
 
-      <GenericSolverDebugger
-        key={selectedProblem.sampleName}
-        createSolver={() =>
-          new HighDensityRepairSolver({ sample: selectedProblem.sample })
-        }
-      />
+      {loadError ? <div>Failed to load sample: {loadError}</div> : null}
+
+      {sample ? (
+        <GenericSolverDebugger
+          key={selectedProblem.sampleName}
+          createSolver={() => new HighDensityRepairSolver({ sample })}
+        />
+      ) : loadError ? null : (
+        <div>Loading {selectedProblem.sampleName}...</div>
+      )}
     </div>
   )
 }

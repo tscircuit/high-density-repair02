@@ -1,29 +1,48 @@
-import * as dataset from "dataset-hd08"
 import type { DatasetSample } from "../lib/high-density-repair-solver"
 
-const datasetRecord: Record<string, unknown> = dataset
+const datasetModules = import.meta.glob<DatasetSample>(
+  "../node_modules/dataset-hd08/samples/*.json",
+)
 
-const entries = Object.entries(datasetRecord)
-  .filter(([name]) => /^sample\d{4}$/.test(name))
+const sampleEntries = Object.entries(datasetModules)
+  .map(([path, load]) => {
+    const match = path.match(/\/(sample\d{4})\.json$/)
+    return match ? ([match[1], load] as const) : null
+  })
+  .filter(
+    (entry): entry is readonly [string, () => Promise<DatasetSample>] =>
+      entry !== null,
+  )
   .sort(([a], [b]) => a.localeCompare(b))
 
 export interface DatasetProblem {
   sampleName: string
-  sample: unknown
+  loadSample: () => Promise<DatasetSample>
 }
 
-export const datasetProblems: DatasetProblem[] = entries.map(
-  ([sampleName, sample]) => ({
+export const datasetProblems: DatasetProblem[] = sampleEntries.map(
+  ([sampleName, loadSample]) => ({
     sampleName,
-    sample,
+    loadSample,
   }),
 )
 
 export const fullDatasetFixture = {
-  sampleCount: entries.length,
-  sampleNames: entries.map(([name]) => name),
+  sampleCount: sampleEntries.length,
+  sampleNames: sampleEntries.map(([name]) => name),
   problems: datasetProblems,
 }
 
-export const getDatasetSample = (sampleName: string): DatasetSample =>
-  datasetRecord[sampleName]
+export const getDatasetSample = async (
+  sampleName: string,
+): Promise<DatasetSample> => {
+  const problem = datasetProblems.find(
+    (entry) => entry.sampleName === sampleName,
+  )
+
+  if (!problem) {
+    throw new Error(`Unknown dataset sample: ${sampleName}`)
+  }
+
+  return problem.loadSample()
+}
