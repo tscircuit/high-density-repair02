@@ -270,15 +270,35 @@ const getRouteMovableIndexes = (
   margin: number,
 ) => {
   const points = route.route ?? []
-  const movableIndexes: number[] = []
+  const movableIndexes = new Set<number>()
 
   for (let index = 1; index < points.length - 1; index += 1) {
     if (isPointNearSide(points[index], boundary, side, margin)) {
-      movableIndexes.push(index)
+      movableIndexes.add(index)
     }
   }
 
-  return movableIndexes
+  // Treat coincident cross-layer points as a single connected transition so
+  // any move keeps the via anchor aligned on both layers.
+  const queue = Array.from(movableIndexes)
+  while (queue.length > 0) {
+    const activeIndex = queue.shift() as number
+    const activePoint = points[activeIndex]
+    if (!activePoint) continue
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      if (movableIndexes.has(index)) continue
+      const point = points[index]
+      if (!point) continue
+      if (point.z === activePoint.z) continue
+      if (!pointsCoincide(point, activePoint)) continue
+
+      movableIndexes.add(index)
+      queue.push(index)
+    }
+  }
+
+  return Array.from(movableIndexes).sort((a, b) => a - b)
 }
 
 const createMovedRoute = (
@@ -288,13 +308,43 @@ const createMovedRoute = (
 ): HdRoute => {
   const nextRoute = cloneRoute(route)
   const nextPoints = nextRoute.route ?? []
+  const movedViaKeys = new Set<string>()
 
   for (const index of movableIndexes) {
-    nextPoints[index] = {
-      ...nextPoints[index],
-      x: nextPoints[index].x + delta.x,
-      y: nextPoints[index].y + delta.y,
+    const originalPoint = nextPoints[index]
+    if (!originalPoint) continue
+
+    const nextPoint = {
+      ...originalPoint,
+      x: originalPoint.x + delta.x,
+      y: originalPoint.y + delta.y,
     }
+
+    nextPoints[index] = {
+      ...nextPoint,
+    }
+
+    for (const via of nextRoute.vias ?? []) {
+      if (!pointsCoincide(via, originalPoint)) continue
+      via.x += delta.x
+      via.y += delta.y
+      movedViaKeys.add(`${via.x},${via.y}`)
+    }
+  }
+
+  for (const via of nextRoute.vias ?? []) {
+    const viaKey = `${via.x},${via.y}`
+    if (movedViaKeys.has(viaKey)) continue
+
+    const connectedPointWasMoved = movableIndexes.some((index) => {
+      const point = route.route?.[index]
+      return point ? pointsCoincide(point, via) : false
+    })
+
+    if (!connectedPointWasMoved) continue
+
+    via.x += delta.x
+    via.y += delta.y
   }
 
   return nextRoute
