@@ -3,6 +3,6 @@ import "graphics-debug/matcher"
 import { renderInitialState } from "./fixtures/visualize-solver"
 
 test("visual snapshot: sample6592 initial state", async () => {
-  const graphics = renderInitialState("sample6592")
+  const graphics = await renderInitialState("sample6592")
   await expect(graphics).toMatchGraphicsSvg(import.meta.path)
 })
