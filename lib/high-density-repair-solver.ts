@@ -185,19 +185,6 @@ const sideDirection = (side: BoundarySide, amount: number): XY => {
   }
 }
 
-const sideBoundaryValue = (boundary: BoundaryRect, side: BoundarySide) => {
-  switch (side) {
-    case "left":
-      return boundary.minX
-    case "right":
-      return boundary.maxX
-    case "top":
-      return boundary.maxY
-    case "bottom":
-      return boundary.minY
-  }
-}
-
 const distanceToSide = (
   point: XY,
   boundary: BoundaryRect,
@@ -271,8 +258,27 @@ const getRouteMovableIndexes = (
 ) => {
   const points = route.route ?? []
   const movableIndexes = new Set<number>()
+  let firstMovableIndex = 1
+  let lastMovableIndex = points.length - 2
 
-  for (let index = 1; index < points.length - 1; index += 1) {
+  while (
+    firstMovableIndex < points.length - 1 &&
+    pointsCoincide(points[firstMovableIndex] as RoutePoint, points[0] as RoutePoint)
+  ) {
+    firstMovableIndex += 1
+  }
+
+  while (
+    lastMovableIndex > 0 &&
+    pointsCoincide(
+      points[lastMovableIndex] as RoutePoint,
+      points[points.length - 1] as RoutePoint,
+    )
+  ) {
+    lastMovableIndex -= 1
+  }
+
+  for (let index = firstMovableIndex; index <= lastMovableIndex; index += 1) {
     if (isPointNearSide(points[index], boundary, side, margin)) {
       movableIndexes.add(index)
     }
@@ -286,7 +292,7 @@ const getRouteMovableIndexes = (
     const activePoint = points[activeIndex]
     if (!activePoint) continue
 
-    for (let index = 1; index < points.length - 1; index += 1) {
+    for (let index = firstMovableIndex; index <= lastMovableIndex; index += 1) {
       if (movableIndexes.has(index)) continue
       const point = points[index]
       if (!point) continue
@@ -298,54 +304,223 @@ const getRouteMovableIndexes = (
     }
   }
 
+  if (
+    movableIndexes.size === 0 &&
+    points.length === 2 &&
+    points.some((point) => isPointNearSide(point, boundary, side, margin))
+  ) {
+    movableIndexes.add(0)
+    movableIndexes.add(1)
+  }
+
   return Array.from(movableIndexes).sort((a, b) => a - b)
+}
+
+const snapToGrid = (
+  value: number,
+  step: number,
+  origin: number,
+  direction: "nearest" | "inward-positive" | "inward-negative" = "nearest",
+) => {
+  const offset = (value - origin) / step
+  const snappedOffset =
+    direction === "inward-positive"
+      ? Math.ceil(offset - EPSILON)
+      : direction === "inward-negative"
+        ? Math.floor(offset + EPSILON)
+        : Math.round(offset)
+
+  return origin + snappedOffset * step
+}
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value))
+
+const dedupeRoutePoints = (points: RoutePoint[]) => {
+  const result: RoutePoint[] = []
+
+  for (const point of points) {
+    const previous = result[result.length - 1]
+    if (
+      previous &&
+      previous.z === point.z &&
+      pointsCoincide(previous, point)
+    ) {
+      continue
+    }
+    result.push(point)
+  }
+
+  return result
+}
+
+const getPreferredAxisValue = (
+  side: BoundarySide,
+  moveAmount: number,
+  boundary: BoundaryRect,
+  gridStep: number,
+) => {
+  switch (side) {
+    case "left":
+      return clamp(
+        snapToGrid(
+          boundary.minX + moveAmount,
+          gridStep,
+          boundary.minX,
+          "inward-positive",
+        ),
+        boundary.minX,
+        boundary.maxX,
+      )
+    case "right":
+      return clamp(
+        snapToGrid(
+          boundary.maxX - moveAmount,
+          gridStep,
+          boundary.minX,
+          "inward-negative",
+        ),
+        boundary.minX,
+        boundary.maxX,
+      )
+    case "top":
+      return clamp(
+        snapToGrid(
+          boundary.maxY - moveAmount,
+          gridStep,
+          boundary.minY,
+          "inward-negative",
+        ),
+        boundary.minY,
+        boundary.maxY,
+      )
+    case "bottom":
+      return clamp(
+        snapToGrid(
+          boundary.minY + moveAmount,
+          gridStep,
+          boundary.minY,
+          "inward-positive",
+        ),
+        boundary.minY,
+        boundary.maxY,
+      )
+  }
+}
+
+const createGridBridge = (
+  start: RoutePoint,
+  end: RoutePoint,
+  delta: XY,
+  preferredAxisValue: number,
+) => {
+  if (Math.abs(delta.x) > EPSILON) {
+    return dedupeRoutePoints([
+      start,
+      { x: preferredAxisValue, y: start.y, z: start.z },
+      { x: preferredAxisValue, y: end.y, z: end.z },
+      end,
+    ])
+  }
+
+  return dedupeRoutePoints([
+    start,
+    { x: start.x, y: preferredAxisValue, z: start.z },
+    { x: end.x, y: preferredAxisValue, z: end.z },
+    end,
+  ])
 }
 
 const createMovedRoute = (
   route: HdRoute,
   movableIndexes: number[],
   delta: XY,
+  boundary: BoundaryRect,
+  gridStep: number,
+  side: BoundarySide,
+  moveAmount: number,
 ): HdRoute => {
-  const nextRoute = cloneRoute(route)
-  const nextPoints = nextRoute.route ?? []
-  const movedViaKeys = new Set<string>()
+  const originalPoints = route.route ?? []
+  if (originalPoints.length < 2 || movableIndexes.length === 0) {
+    return cloneRoute(route)
+  }
 
-  for (const index of movableIndexes) {
-    const originalPoint = nextPoints[index]
-    if (!originalPoint) continue
+  if ((route.vias?.length ?? 0) > 0) {
+    const translatedRoute = cloneRoute(route)
+    const translatedPoints = translatedRoute.route ?? []
 
-    const nextPoint = {
-      ...originalPoint,
-      x: originalPoint.x + delta.x,
-      y: originalPoint.y + delta.y,
+    for (const index of movableIndexes) {
+      const originalPoint = translatedPoints[index]
+      if (!originalPoint) continue
+      translatedPoints[index] = {
+        ...originalPoint,
+        x: originalPoint.x + delta.x,
+        y: originalPoint.y + delta.y,
+      }
     }
 
-    nextPoints[index] = {
-      ...nextPoint,
-    }
+    for (const via of translatedRoute.vias ?? []) {
+      const connectedPointWasMoved = movableIndexes.some((index) => {
+        const point = route.route?.[index]
+        return point ? pointsCoincide(point, via) : false
+      })
 
-    for (const via of nextRoute.vias ?? []) {
-      if (!pointsCoincide(via, originalPoint)) continue
+      if (!connectedPointWasMoved) continue
       via.x += delta.x
       via.y += delta.y
-      movedViaKeys.add(`${via.x},${via.y}`)
     }
+
+    return translatedRoute
   }
 
-  for (const via of nextRoute.vias ?? []) {
-    const viaKey = `${via.x},${via.y}`
-    if (movedViaKeys.has(viaKey)) continue
+  const nextRoute = cloneRoute(route)
+  const isTwoPointRedraw =
+    originalPoints.length === 2 &&
+    movableIndexes.length === 2 &&
+    movableIndexes[0] === 0 &&
+    movableIndexes[1] === 1
 
-    const connectedPointWasMoved = movableIndexes.some((index) => {
-      const point = route.route?.[index]
-      return point ? pointsCoincide(point, via) : false
-    })
-
-    if (!connectedPointWasMoved) continue
-
-    via.x += delta.x
-    via.y += delta.y
+  if (isTwoPointRedraw) {
+    const start = originalPoints[0] as RoutePoint
+    const end = originalPoints[1] as RoutePoint
+    const preferredAxisValue = getPreferredAxisValue(
+      side,
+      moveAmount,
+      boundary,
+      gridStep,
+    )
+    nextRoute.route = createGridBridge(start, end, delta, preferredAxisValue)
+    return nextRoute
   }
+
+  const firstIndex = movableIndexes[0] as number
+  const lastIndex = movableIndexes[movableIndexes.length - 1] as number
+  const anchorStart = originalPoints[firstIndex - 1]
+  const anchorEnd = originalPoints[lastIndex + 1]
+
+  if (!anchorStart || !anchorEnd) {
+    return nextRoute
+  }
+
+  const preferredAxisValue = getPreferredAxisValue(
+    side,
+    moveAmount,
+    boundary,
+    gridStep,
+  )
+
+  const replacementBridge = createGridBridge(
+    anchorStart,
+    anchorEnd,
+    delta,
+    preferredAxisValue,
+  )
+
+  nextRoute.route = dedupeRoutePoints([
+    ...originalPoints.slice(0, firstIndex),
+    ...replacementBridge.slice(1),
+    ...originalPoints.slice(lastIndex + 2),
+  ])
 
   return nextRoute
 }
@@ -369,6 +544,33 @@ const getRouteSegments = (route: HdRoute, routeIndex: number): Segment[] => {
   }
 
   return segments
+}
+
+const getSegmentLength = (start: XY, end: XY) =>
+  Math.hypot(end.x - start.x, end.y - start.y)
+
+const getRouteSideExposure = (
+  route: HdRoute,
+  boundary: BoundaryRect,
+  side: BoundarySide,
+  margin: number,
+) => {
+  const points = route.route ?? []
+  let exposure = 0
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index]
+    const end = points[index + 1]
+    if (!start || !end) continue
+    if (
+      isPointNearSide(start, boundary, side, margin) &&
+      isPointNearSide(end, boundary, side, margin)
+    ) {
+      exposure += getSegmentLength(start, end)
+    }
+  }
+
+  return exposure
 }
 
 const lengthSquared = (point: XY) => point.x * point.x + point.y * point.y
@@ -637,7 +839,7 @@ const createOverlayLinesForRoutes = (
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
   private currentFrameIndex = 0
-  private repairedRoutes: HdRoute[] = []
+  public repairedRoutes: HdRoute[] = []
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
@@ -714,7 +916,8 @@ export class HighDensityRepairSolver extends BaseSolver {
       },
     ]
 
-    const sides: BoundarySide[] = ["left", "right", "top", "bottom"]
+    const sides: BoundarySide[] = ["top", "bottom", "left", "right"]
+    const lockedTwoPointRoutes = new Set<number>()
 
     for (const side of sides) {
       const hasObstacle = obstacles.some((obstacle) =>
@@ -738,66 +941,37 @@ export class HighDensityRepairSolver extends BaseSolver {
 
       for (let routeIndex = 0; routeIndex < routeCount; routeIndex += 1) {
         if (attemptedRoutes.has(routeIndex)) continue
+        if (lockedTwoPointRoutes.has(routeIndex)) continue
 
+        const route = this.repairedRoutes[routeIndex]
+        const isTwoPointRoute = (route.route?.length ?? 0) === 2
         const movableIndexes = getRouteMovableIndexes(
-          this.repairedRoutes[routeIndex],
+          route,
           boundary,
           side,
           margin,
         )
         if (movableIndexes.length === 0) continue
-
+        if (isTwoPointRoute && !hasObstacle) continue
         const delta = sideDirection(side, moveAmount)
         const candidateRouteIndexes = new Set<number>([routeIndex])
         const candidateRoutes = cloneRoutes(this.repairedRoutes)
-        const movableByRoute = new Map<number, number[]>()
-        movableByRoute.set(routeIndex, movableIndexes)
-        const queue = [routeIndex]
         let rejected = false
         let rejectionReason = "overlap"
 
-        while (queue.length > 0 && !rejected) {
-          const activeRouteIndex = queue.shift() as number
-          const activeMovableIndexes = movableByRoute.get(activeRouteIndex) ?? []
-          candidateRoutes[activeRouteIndex] = createMovedRoute(
-            candidateRoutes[activeRouteIndex],
-            activeMovableIndexes,
-            delta,
-          )
+        candidateRoutes[routeIndex] = createMovedRoute(
+          candidateRoutes[routeIndex],
+          movableIndexes,
+          delta,
+          boundary,
+          gridStep,
+          side,
+          moveAmount,
+        )
 
-          if (!routeStaysInsideBoundary(candidateRoutes[activeRouteIndex], boundary)) {
-            rejected = true
-            rejectionReason = "boundary"
-            break
-          }
-
-          const conflicts = findConflictingRouteIndexes(
-            candidateRoutes,
-            candidateRouteIndexes,
-          )
-
-          for (const conflictRouteIndex of conflicts) {
-            if (candidateRouteIndexes.has(conflictRouteIndex)) {
-              continue
-            }
-
-            const conflictMovableIndexes = getRouteMovableIndexes(
-              this.repairedRoutes[conflictRouteIndex],
-              boundary,
-              side,
-              margin,
-            )
-
-            if (conflictMovableIndexes.length === 0) {
-              rejected = true
-              rejectionReason = "unmovable-adjacent"
-              break
-            }
-
-            candidateRouteIndexes.add(conflictRouteIndex)
-            movableByRoute.set(conflictRouteIndex, conflictMovableIndexes)
-            queue.push(conflictRouteIndex)
-          }
+        if (!routeStaysInsideBoundary(candidateRoutes[routeIndex], boundary)) {
+          rejected = true
+          rejectionReason = "boundary"
         }
 
         const finalConflicts = rejected
@@ -807,6 +981,36 @@ export class HighDensityRepairSolver extends BaseSolver {
         if (finalConflicts.size > 0) {
           rejected = true
           rejectionReason = "eventual-overlap"
+        }
+
+        if (!rejected) {
+          const sideRegression = Array.from(candidateRouteIndexes).some((index) => {
+            const previousRoute = this.repairedRoutes[index]
+            const nextRoute = candidateRoutes[index]
+            const otherSides = sides.filter((otherSide) => otherSide !== side)
+
+            return otherSides.some((otherSide) => {
+              const previousExposure = getRouteSideExposure(
+                previousRoute,
+                boundary,
+                otherSide,
+                margin,
+              )
+              const nextExposure = getRouteSideExposure(
+                nextRoute,
+                boundary,
+                otherSide,
+                margin,
+              )
+
+              return nextExposure > previousExposure + EPSILON
+            })
+          })
+
+          if (sideRegression) {
+            rejected = true
+            rejectionReason = "side-regression"
+          }
         }
 
         const routeNames = Array.from(candidateRouteIndexes).map(
@@ -840,6 +1044,9 @@ export class HighDensityRepairSolver extends BaseSolver {
 
         if (!rejected) {
           this.repairedRoutes = candidateRoutes
+          if (isTwoPointRoute) {
+            lockedTwoPointRoutes.add(routeIndex)
+          }
         }
 
         for (const candidateRouteIndex of candidateRouteIndexes) {
