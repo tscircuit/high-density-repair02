@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       lib: resolve(__dirname, "./lib"),
+      fixtures: resolve(__dirname, "./fixtures"),
       tests: resolve(__dirname, "./tests"),
     },
   },

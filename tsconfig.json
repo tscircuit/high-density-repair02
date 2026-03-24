@@ -9,6 +9,7 @@
     "baseUrl": ".",
     "paths": {
       "lib/*": ["./lib/*"],
+      "fixtures/*": ["./fixtures/*"],
       "tests/*": ["./tests/*"]
     },
     "esModuleInterop": true,
