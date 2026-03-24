@@ -1,6 +1,6 @@
-import type { Decorator } from "react-cosmos"
+import type { ReactDecorator } from "react-cosmos-core"
 
-const decorator: Decorator = ({ children }) => {
+const decorator: ReactDecorator = ({ children }) => {
   return <div style={{ padding: 16 }}>{children}</div>
 }
 

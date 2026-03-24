@@ -23,5 +23,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["lib", "tests", "pages", "cosmos.decorator.tsx", "vite.config.ts"]
+  "include": ["lib", "cosmos.decorator.tsx", "vite.config.ts", "tests"]
 }
