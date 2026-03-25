@@ -15,7 +15,8 @@ export const processBoundarySide = ({
   side,
   sample,
   boundary,
-  margin,
+  obstacleSideMargin,
+  clearSideMargin,
   gridStep,
   repairedRoutes,
   frames,
@@ -24,17 +25,19 @@ export const processBoundarySide = ({
   side: BoundarySide
   sample: DatasetSample | undefined
   boundary: BoundaryRect
-  margin: number
+  obstacleSideMargin: number
+  clearSideMargin: number
   gridStep: number
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
   lockedTwoPointRoutes: Set<number>
 }) => {
-  const { hasObstacle, moveAmount } = getMoveAmountForSide(
+  const { hasObstacle, sideMargin, moveAmount } = getMoveAmountForSide(
     sample,
     boundary,
     side,
-    margin,
+    obstacleSideMargin,
+    clearSideMargin,
   )
 
   frames.push(
@@ -42,7 +45,7 @@ export const processBoundarySide = ({
       cloneRoutes(repairedRoutes),
       boundary,
       side,
-      margin,
+      sideMargin,
       moveAmount,
       hasObstacle,
       gridStep,
@@ -68,7 +71,7 @@ export const processBoundarySide = ({
       routeIndex,
       side,
       boundary,
-      margin,
+      margin: sideMargin,
       gridStep,
       moveAmount,
     })
@@ -81,7 +84,7 @@ export const processBoundarySide = ({
         candidateRouteIndexes: evaluation.candidateRouteIndexes,
         boundary,
         side,
-        margin,
+        margin: sideMargin,
         moveAmount,
         gridStep,
         rejected: evaluation.rejected,

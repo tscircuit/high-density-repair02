@@ -90,6 +90,8 @@ export type DatasetSample = {
 export interface HighDensityRepairSolverParams {
   sample?: DatasetSample
   margin?: number
+  obstacleSideMargin?: number
+  clearSideMargin?: number
 }
 
 export type BuildRepairFramesResult = {
@@ -97,7 +99,8 @@ export type BuildRepairFramesResult = {
   baseRoutes: HdRoute[]
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
-  margin: number
+  obstacleSideMargin: number
+  clearSideMargin: number
   gridStep: number
 }
 

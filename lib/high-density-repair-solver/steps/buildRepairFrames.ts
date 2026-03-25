@@ -6,26 +6,39 @@ import { BOUNDARY_SIDES } from "../shared/constants"
 import type {
   BuildRepairFramesResult,
   DatasetSample,
+  HighDensityRepairSolverParams,
   VisualizationFrame,
 } from "../shared/types"
 import { processBoundarySide } from "./processBoundarySide"
 
 export const buildRepairFrames = (
   sample: DatasetSample | undefined,
-  requestedMargin: number | undefined,
+  params: Pick<
+    HighDensityRepairSolverParams,
+    "margin" | "obstacleSideMargin" | "clearSideMargin"
+  >,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const baseRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
   const repairedRoutes = cloneRoutes(baseRoutes)
-  const margin = Math.max(requestedMargin ?? 0.4, 0.05)
+  const obstacleSideMargin = Math.max(
+    params.obstacleSideMargin ?? params.margin ?? 0.4,
+    0.05,
+  )
+  const clearSideMargin = Math.max(
+    params.clearSideMargin ?? params.margin ?? 0.4,
+    0.05,
+  )
+  const maxMargin = Math.max(obstacleSideMargin, clearSideMargin)
 
   if (!boundary) {
     return {
       boundary: null,
       baseRoutes,
       repairedRoutes,
-      margin,
-      gridStep: Math.max(margin / 2, 0.05),
+      obstacleSideMargin,
+      clearSideMargin,
+      gridStep: Math.max(maxMargin / 2, 0.05),
       frames: [
         {
           title: "HighDensityRepair02 Missing Boundary",
@@ -35,9 +48,15 @@ export const buildRepairFrames = (
     }
   }
 
-  const gridStep = Math.max(margin / 2, 0.05)
+  const gridStep = Math.max(maxMargin / 2, 0.05)
   const frames: VisualizationFrame[] = [
-    createInitialFrame(cloneRoutes(repairedRoutes), boundary, margin, gridStep),
+    createInitialFrame(
+      cloneRoutes(repairedRoutes),
+      boundary,
+      obstacleSideMargin,
+      clearSideMargin,
+      gridStep,
+    ),
   ]
   const lockedTwoPointRoutes = new Set<number>()
 
@@ -46,7 +65,8 @@ export const buildRepairFrames = (
       side,
       sample,
       boundary,
-      margin,
+      obstacleSideMargin,
+      clearSideMargin,
       gridStep,
       repairedRoutes,
       frames,
@@ -59,7 +79,8 @@ export const buildRepairFrames = (
       cloneRoutes(repairedRoutes),
       cloneRoutes(baseRoutes),
       boundary,
-      margin,
+      obstacleSideMargin,
+      clearSideMargin,
       gridStep,
     ),
   )
@@ -69,7 +90,8 @@ export const buildRepairFrames = (
     baseRoutes,
     repairedRoutes,
     frames,
-    margin,
+    obstacleSideMargin,
+    clearSideMargin,
     gridStep,
   }
 }

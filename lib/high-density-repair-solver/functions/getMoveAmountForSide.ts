@@ -5,15 +5,18 @@ export const getMoveAmountForSide = (
   sample: DatasetSample | undefined,
   boundary: BoundaryRect,
   side: BoundarySide,
-  margin: number,
+  obstacleSideMargin: number,
+  clearSideMargin: number,
 ) => {
   const obstacles = sample?.adjacentObstacles ?? []
   const hasObstacle = obstacles.some((obstacle) =>
-    isObstacleNearSide(obstacle, boundary, side, margin),
+    isObstacleNearSide(obstacle, boundary, side, obstacleSideMargin),
   )
+  const sideMargin = hasObstacle ? obstacleSideMargin : clearSideMargin
 
   return {
     hasObstacle,
-    moveAmount: hasObstacle ? margin : margin / 2,
+    sideMargin,
+    moveAmount: sideMargin,
   }
 }

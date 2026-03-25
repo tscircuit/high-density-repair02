@@ -4,10 +4,11 @@ import { createBoundaryGridLines } from "./createBoundaryGridLines"
 export const createInitialFrame = (
   routes: HdRoute[],
   boundary: BoundaryRect,
-  margin: number,
+  obstacleSideMargin: number,
+  clearSideMargin: number,
   gridStep: number,
 ): VisualizationFrame => ({
-  title: `HighDensityRepair02 Initial State (margin=${margin})`,
+  title: `HighDensityRepair02 Initial State (obstacle=${obstacleSideMargin}, clear=${clearSideMargin})`,
   routes,
   overlayLines: createBoundaryGridLines(boundary, gridStep),
 })

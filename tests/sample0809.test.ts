@@ -14,7 +14,11 @@ test("sample0809 keeps vias aligned with layer transitions after repair", async 
     import.meta.url,
   )
   const sample = await Bun.file(samplePath).json()
-  const solver = new HighDensityRepairSolver({ sample, margin: 0.4 })
+  const solver = new HighDensityRepairSolver({
+    sample,
+    obstacleSideMargin: 0.4,
+    clearSideMargin: 0.2,
+  })
 
   solver.solve()
 

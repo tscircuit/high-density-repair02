@@ -24,14 +24,29 @@ export class HighDensityRepairSolver extends BaseSolver {
   private currentFrameIndex = 0
   public repairedRoutes: HdRoute[] = []
 
+  private getResolvedMargins() {
+    const obstacleSideMargin = Math.max(
+      this.params.obstacleSideMargin ?? this.params.margin ?? 0.4,
+      0.05,
+    )
+    const clearSideMargin = Math.max(
+      this.params.clearSideMargin ?? this.params.margin ?? 0.4,
+      0.05,
+    )
+
+    return { obstacleSideMargin, clearSideMargin }
+  }
+
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
   }
 
   override _setup(): void {
+    const { obstacleSideMargin, clearSideMargin } = this.getResolvedMargins()
     this.buildFrames()
     this.stats = {
-      margin: this.params.margin ?? 0.4,
+      obstacleSideMargin,
+      clearSideMargin,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
     }
@@ -63,15 +78,21 @@ export class HighDensityRepairSolver extends BaseSolver {
   }
 
   override getOutput() {
+    const { obstacleSideMargin, clearSideMargin } = this.getResolvedMargins()
     return {
-      margin: this.params.margin ?? 0.4,
+      obstacleSideMargin,
+      clearSideMargin,
       repairedRoutes: this.repairedRoutes,
       frameCount: this.frames.length,
     }
   }
 
   private buildFrames() {
-    const result = buildRepairFrames(this.params.sample, this.params.margin)
+    const result = buildRepairFrames(this.params.sample, {
+      margin: this.params.margin,
+      obstacleSideMargin: this.params.obstacleSideMargin,
+      clearSideMargin: this.params.clearSideMargin,
+    })
     this.frames = result.frames
     this.repairedRoutes = result.repairedRoutes
   }

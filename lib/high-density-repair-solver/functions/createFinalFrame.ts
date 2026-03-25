@@ -5,10 +5,11 @@ export const createFinalFrame = (
   routes: HdRoute[],
   originalRoutes: HdRoute[],
   boundary: BoundaryRect,
-  margin: number,
+  obstacleSideMargin: number,
+  clearSideMargin: number,
   gridStep: number,
 ): VisualizationFrame => ({
-  title: `HighDensityRepair02 Final State (margin=${margin})`,
+  title: `HighDensityRepair02 Final State (obstacle=${obstacleSideMargin}, clear=${clearSideMargin})`,
   routes,
   originalRoutes,
   overlayLines: createBoundaryGridLines(boundary, gridStep),
