@@ -18,6 +18,8 @@ export const createMovedRoute = (
   gridStep: number,
   side: BoundarySide,
   moveAmount: number,
+  targetAxisValue?: number,
+  translateOnly = false,
 ): HdRoute => {
   const delta = sideDirection(side, moveAmount)
   const originalPoints = route.route ?? []
@@ -25,7 +27,7 @@ export const createMovedRoute = (
     return cloneRoute(route)
   }
 
-  if ((route.vias?.length ?? 0) > 0) {
+  if (translateOnly || (route.vias?.length ?? 0) > 0) {
     const translatedRoute = cloneRoute(route)
     const translatedPoints = translatedRoute.route ?? []
 
@@ -63,13 +65,10 @@ export const createMovedRoute = (
   if (isTwoPointRedraw) {
     const start = originalPoints[0] as RoutePoint
     const end = originalPoints[1] as RoutePoint
-    const preferredAxisValue = getPreferredAxisValue(
-      side,
-      moveAmount,
-      boundary,
-      gridStep,
-    )
-    nextRoute.route = createGridBridge(start, end, delta, preferredAxisValue)
+    const preferredAxis =
+      targetAxisValue ??
+      getPreferredAxisValue(side, moveAmount, boundary, gridStep)
+    nextRoute.route = createGridBridge(start, end, delta, preferredAxis)
     return nextRoute
   }
 
@@ -82,17 +81,14 @@ export const createMovedRoute = (
     return nextRoute
   }
 
-  const preferredAxisValue = getPreferredAxisValue(
-    side,
-    moveAmount,
-    boundary,
-    gridStep,
-  )
+  const preferredAxis =
+    targetAxisValue ??
+    getPreferredAxisValue(side, moveAmount, boundary, gridStep)
   const replacementBridge = createGridBridge(
     anchorStart,
     anchorEnd,
     delta,
-    preferredAxisValue,
+    preferredAxis,
   )
 
   nextRoute.route = dedupeRoutePoints([

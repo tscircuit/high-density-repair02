@@ -105,6 +105,7 @@ export type EvaluateRouteMoveResult = {
   isTwoPointRoute: boolean
   movableIndexes: number[]
   candidateRouteIndexes: Set<number>
+  movedTwoPointRouteIndexes: Set<number>
   candidateRoutes: HdRoute[]
   rejected: boolean
   rejectionReason: string

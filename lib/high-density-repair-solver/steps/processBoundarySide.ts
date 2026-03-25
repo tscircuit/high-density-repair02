@@ -95,8 +95,8 @@ export const processBoundarySide = ({
         repairedRoutes.length,
         ...evaluation.candidateRoutes,
       )
-      if (evaluation.isTwoPointRoute) {
-        lockedTwoPointRoutes.add(routeIndex)
+      for (const movedTwoPointRouteIndex of evaluation.movedTwoPointRouteIndexes) {
+        lockedTwoPointRoutes.add(movedTwoPointRouteIndex)
       }
     }
 
