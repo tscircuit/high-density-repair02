@@ -5,7 +5,6 @@ import { findClearanceConflicts } from "../functions/findClearanceConflicts"
 import { getRouteBoundaryOverflow } from "../functions/getRouteBoundaryOverflow"
 import { getRouteMovableIndexes } from "../functions/getRouteMovableIndexes"
 import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
-import { routeStaysInsideBoundary } from "../functions/routeStaysInsideBoundary"
 import { wouldIncreaseExposureOnOtherSides } from "../functions/wouldIncreaseExposureOnOtherSides"
 import type {
   BoundaryRect,
