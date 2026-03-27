@@ -6,7 +6,6 @@ import type {
   VisualizationFrame,
 } from "../shared/types"
 import { createBoundaryGridLines } from "./createBoundaryGridLines"
-import { createMovementArrow } from "./createMovementArrow"
 import { createOverlayLinesForRoutes } from "./createOverlayLinesForRoutes"
 import { createSideStripRect } from "./createSideStripRect"
 
@@ -14,6 +13,7 @@ export const createCandidateFrame = ({
   routes,
   candidateRoutes,
   candidateRouteIndexes,
+  originalRoutes,
   boundary,
   side,
   margin,
@@ -25,6 +25,7 @@ export const createCandidateFrame = ({
   routes: HdRoute[]
   candidateRoutes: HdRoute[]
   candidateRouteIndexes: Set<number>
+  originalRoutes?: HdRoute[]
   boundary: BoundaryRect
   side: BoundarySide
   margin: number
@@ -41,12 +42,15 @@ export const createCandidateFrame = ({
     title: rejected
       ? `${side} move rejected (${rejectionReason})`
       : `${side} move accepted`,
-    routes,
+    routes: rejected ? routes : candidateRoutes,
+    originalRoutes,
     activeSide: side,
     candidateRouteNames: routeNames,
     overlayLines: [
       ...createBoundaryGridLines(boundary, gridStep, side),
-      ...createOverlayLinesForRoutes(candidateRoutes, candidateRouteIndexes),
+      ...(rejected
+        ? createOverlayLinesForRoutes(candidateRoutes, candidateRouteIndexes)
+        : []),
     ],
     overlayRects: [
       createSideStripRect(
@@ -57,6 +61,5 @@ export const createCandidateFrame = ({
         rejected ? `rejected:${side}` : `accepted:${side}`,
       ),
     ],
-    overlayArrows: [createMovementArrow(boundary, side, moveAmount)],
   }
 }

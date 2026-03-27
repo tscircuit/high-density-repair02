@@ -1,3 +1,4 @@
+import { cloneRoute } from "../functions/cloneRoute"
 import { cloneRoutes } from "../functions/cloneRoutes"
 import { createCandidateFrame } from "../functions/createCandidateFrame"
 import { createSideAnalysisFrame } from "../functions/createSideAnalysisFrame"
@@ -83,6 +84,11 @@ export const processBoundarySide = ({
         routes: cloneRoutes(repairedRoutes),
         candidateRoutes: evaluation.candidateRoutes,
         candidateRouteIndexes: evaluation.candidateRouteIndexes,
+        originalRoutes: evaluation.rejected
+          ? undefined
+          : Array.from(evaluation.candidateRouteIndexes).map((index) =>
+              cloneRoute(repairedRoutes[index] as HdRoute),
+            ),
         boundary,
         side,
         margin,
