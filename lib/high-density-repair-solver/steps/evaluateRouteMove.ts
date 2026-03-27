@@ -31,9 +31,11 @@ export const evaluateRouteMove = ({
   moveAmount: number
 }): EvaluateRouteMoveResult | null => {
   const getConflictKeys = (routes: HdRoute[], movedIndexes: Set<number>) =>
-    findClearanceConflicts(routes, movedIndexes, margin).map(
-      ({ routeIndexes, layers }) =>
-        `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
+    new Set(
+      findClearanceConflicts(routes, movedIndexes, margin).map(
+        ({ routeIndexes, layers }) =>
+          `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
+      ),
     )
 
   const route = currentRoutes[routeIndex]
@@ -54,9 +56,11 @@ export const evaluateRouteMove = ({
     [routeIndex, new Set()],
   ])
   const routeQueue = [routeIndex]
+  let routeQueueIndex = 0
 
-  while (routeQueue.length > 0 && !rejected) {
-    const activeRouteIndex = routeQueue.shift() as number
+  while (routeQueueIndex < routeQueue.length && !rejected) {
+    const activeRouteIndex = routeQueue[routeQueueIndex] as number
+    routeQueueIndex += 1
     queuedRouteIndexes.delete(activeRouteIndex)
     if (candidateRouteIndexes.has(activeRouteIndex)) continue
 
@@ -125,7 +129,7 @@ export const evaluateRouteMove = ({
 
     const adjacencyConflicts = findClearanceConflicts(
       candidateRoutes,
-      candidateRouteIndexes,
+      new Set([activeRouteIndex]),
       margin,
     )
 
@@ -160,19 +164,22 @@ export const evaluateRouteMove = ({
     }
   }
 
-  if (
-    !rejected &&
-    getConflictKeys(candidateRoutes, candidateRouteIndexes).some(
-      (conflictKey) => {
-        const currentConflictKeys = new Set(
-          getConflictKeys(currentRoutes, candidateRouteIndexes),
-        )
-        return !currentConflictKeys.has(conflictKey)
-      },
+  if (!rejected) {
+    const currentConflictKeys = getConflictKeys(
+      currentRoutes,
+      candidateRouteIndexes,
     )
-  ) {
-    rejected = true
-    rejectionReason = "eventual-overlap"
+    const candidateConflictKeys = getConflictKeys(
+      candidateRoutes,
+      candidateRouteIndexes,
+    )
+
+    for (const conflictKey of candidateConflictKeys) {
+      if (currentConflictKeys.has(conflictKey)) continue
+      rejected = true
+      rejectionReason = "eventual-overlap"
+      break
+    }
   }
 
   if (

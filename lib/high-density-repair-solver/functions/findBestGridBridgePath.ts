@@ -9,7 +9,6 @@ import type {
 import { dedupeRoutePoints } from "./dedupeRoutePoints"
 import { distancePointToSegment } from "./distancePointToSegment"
 import { distanceToSide } from "./distanceToSide"
-import { getRoutePointLayer } from "./getRoutePointLayer"
 import { getRouteSegments } from "./getRouteSegments"
 import { segmentDistance } from "./segmentDistance"
 
@@ -97,6 +96,7 @@ const getSegmentTravelScore = ({
   obstacleSegments,
   obstacleVias,
   traceThickness,
+  routeLayer,
 }: {
   from: XY
   to: XY
@@ -106,6 +106,7 @@ const getSegmentTravelScore = ({
   obstacleSegments: ReturnType<typeof getRouteObstacleData>["segments"]
   obstacleVias: ReturnType<typeof getRouteObstacleData>["vias"]
   traceThickness: number
+  routeLayer: 0 | 1
 }) => {
   const midPoint = {
     x: (from.x + to.x) / 2,
@@ -132,8 +133,8 @@ const getSegmentTravelScore = ({
 
   for (const segment of obstacleSegments) {
     if (
-      segment.layer !==
-      getRoutePointLayer({ ...from, z: (from as RoutePoint).z })
+      (routeLayer === 1 && segment.layer !== "bottom") ||
+      (routeLayer !== 1 && segment.layer !== "top")
     ) {
       continue
     }
@@ -163,6 +164,62 @@ const getSegmentTravelScore = ({
   }
 
   return score
+}
+
+type QueueEntry = {
+  key: string
+  score: number
+}
+
+const heapPush = (heap: QueueEntry[], entry: QueueEntry) => {
+  heap.push(entry)
+  let index = heap.length - 1
+
+  while (index > 0) {
+    const parentIndex = Math.floor((index - 1) / 2)
+    if (heap[parentIndex]!.score <= heap[index]!.score) break
+    ;[heap[parentIndex], heap[index]] = [heap[index]!, heap[parentIndex]!]
+    index = parentIndex
+  }
+}
+
+const heapPop = (heap: QueueEntry[]) => {
+  if (heap.length === 0) return null
+
+  const first = heap[0] as QueueEntry
+  const last = heap.pop()
+
+  if (heap.length === 0 || !last) {
+    return first
+  }
+
+  heap[0] = last
+  let index = 0
+
+  while (true) {
+    const leftIndex = index * 2 + 1
+    const rightIndex = leftIndex + 1
+    let smallestIndex = index
+
+    if (
+      leftIndex < heap.length &&
+      heap[leftIndex]!.score < heap[smallestIndex]!.score
+    ) {
+      smallestIndex = leftIndex
+    }
+    if (
+      rightIndex < heap.length &&
+      heap[rightIndex]!.score < heap[smallestIndex]!.score
+    ) {
+      smallestIndex = rightIndex
+    }
+    if (smallestIndex === index) {
+      return first
+    }
+
+    ;[heap[index], heap[smallestIndex]] = [heap[smallestIndex]!, heap[index]!]
+    index = smallestIndex
+  }
 }
 
 export const findBestGridBridgePath = ({
@@ -223,9 +280,10 @@ export const findBestGridBridgePath = ({
   )
   const startKey = `${startXIndex}:${startYIndex}`
   const targetKey = `${endXIndex}:${endYIndex}`
-  const openSet = [{ key: startKey, score: 0 }]
+  const openSet: QueueEntry[] = [{ key: startKey, score: 0 }]
   const bestCosts = new Map<string, number>([[startKey, 0]])
   const previous = new Map<string, string>()
+  const routeLayer = (start.z ?? 0) === 1 ? 1 : 0
 
   const getPoint = (xIndex: number, yIndex: number): RoutePoint => ({
     x: xValues[xIndex] as number,
@@ -234,8 +292,12 @@ export const findBestGridBridgePath = ({
   })
 
   while (openSet.length > 0) {
-    openSet.sort((a, b) => a.score - b.score)
-    const current = openSet.shift() as { key: string; score: number }
+    const current = heapPop(openSet) as QueueEntry
+    if (
+      current.score > (bestCosts.get(current.key) ?? Number.POSITIVE_INFINITY)
+    ) {
+      continue
+    }
     if (current.key === targetKey) break
 
     const [xIndexText, yIndexText] = current.key.split(":")
@@ -266,6 +328,7 @@ export const findBestGridBridgePath = ({
         obstacleSegments: segments,
         obstacleVias: vias,
         traceThickness,
+        routeLayer,
       })
 
       if (!Number.isFinite(travelScore)) continue
@@ -283,7 +346,7 @@ export const findBestGridBridgePath = ({
 
       bestCosts.set(nextKey, nextCost)
       previous.set(nextKey, current.key)
-      openSet.push({ key: nextKey, score: nextCost })
+      heapPush(openSet, { key: nextKey, score: nextCost })
     }
   }
 
