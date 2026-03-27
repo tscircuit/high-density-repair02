@@ -31,6 +31,12 @@ export const evaluateRouteMove = ({
   gridStep: number
   moveAmount: number
 }): EvaluateRouteMoveResult | null => {
+  const getConflictKeys = (routes: HdRoute[], movedIndexes: Set<number>) =>
+    findClearanceConflicts(routes, movedIndexes, margin).map(
+      ({ routeIndexes, layers }) =>
+        `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
+    )
+
   const route = currentRoutes[routeIndex]
   const isTwoPointRoute = (route.route?.length ?? 0) === 2
   const movableIndexes = getRouteMovableIndexes(route, boundary, side, margin)
@@ -91,6 +97,9 @@ export const evaluateRouteMove = ({
       gridStep,
       side,
       moveAmount,
+      margin,
+      candidateRoutes,
+      activeRouteIndex,
       targetAxisValue,
       activeRouteIndex !== routeIndex,
     )
@@ -150,6 +159,21 @@ export const evaluateRouteMove = ({
         queuedRouteLayers.set(nextRouteIndex, existingLayers)
       }
     }
+  }
+
+  if (
+    !rejected &&
+    getConflictKeys(candidateRoutes, candidateRouteIndexes).some(
+      (conflictKey) => {
+        const currentConflictKeys = new Set(
+          getConflictKeys(currentRoutes, candidateRouteIndexes),
+        )
+        return !currentConflictKeys.has(conflictKey)
+      },
+    )
+  ) {
+    rejected = true
+    rejectionReason = "eventual-overlap"
   }
 
   if (

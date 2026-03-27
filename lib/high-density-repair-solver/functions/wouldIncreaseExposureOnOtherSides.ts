@@ -1,6 +1,6 @@
-import { BOUNDARY_SIDES, EPSILON } from "../shared/constants"
+import { BOUNDARY_SIDES } from "../shared/constants"
 import type { BoundaryRect, BoundarySide, HdRoute } from "../shared/types"
-import { getRouteSideExposure } from "./getRouteSideExposure"
+import { getRouteSideContactState } from "./getRouteSideContactState"
 
 export const wouldIncreaseExposureOnOtherSides = (
   currentRoutes: HdRoute[],
@@ -16,19 +16,19 @@ export const wouldIncreaseExposureOnOtherSides = (
     const otherSides = BOUNDARY_SIDES.filter((side) => side !== activeSide)
 
     return otherSides.some((otherSide) => {
-      const previousExposure = getRouteSideExposure(
+      const previousContactState = getRouteSideContactState(
         previousRoute,
         boundary,
         otherSide,
         margin,
       )
-      const nextExposure = getRouteSideExposure(
+      const nextContactState = getRouteSideContactState(
         nextRoute,
         boundary,
         otherSide,
         margin,
       )
 
-      return nextExposure > previousExposure + EPSILON
+      return previousContactState === "none" && nextContactState !== "none"
     })
   })
