@@ -46,6 +46,19 @@ export type Segment = {
   layer: "top" | "bottom"
 }
 
+export type RouteVia = {
+  center: XY
+  radius: number
+  routeIndex: number
+}
+
+export type RouteGeometry = {
+  segments: Segment[]
+  vias: RouteVia[]
+}
+
+export type RouteGeometryCache = WeakMap<HdRoute, RouteGeometry>
+
 export type VisualizationFrame = {
   title: string
   routes: HdRoute[]

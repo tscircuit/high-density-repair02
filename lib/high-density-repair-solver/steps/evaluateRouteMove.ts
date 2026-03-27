@@ -11,6 +11,7 @@ import type {
   BoundarySide,
   EvaluateRouteMoveResult,
   HdRoute,
+  RouteGeometryCache,
 } from "../shared/types"
 
 export const evaluateRouteMove = ({
@@ -21,6 +22,7 @@ export const evaluateRouteMove = ({
   margin,
   gridStep,
   moveAmount,
+  geometryCache,
 }: {
   currentRoutes: HdRoute[]
   routeIndex: number
@@ -29,10 +31,11 @@ export const evaluateRouteMove = ({
   margin: number
   gridStep: number
   moveAmount: number
+  geometryCache: RouteGeometryCache
 }): EvaluateRouteMoveResult | null => {
   const getConflictKeys = (routes: HdRoute[], movedIndexes: Set<number>) =>
     new Set(
-      findClearanceConflicts(routes, movedIndexes, margin).map(
+      findClearanceConflicts(routes, movedIndexes, margin, geometryCache).map(
         ({ routeIndexes, layers }) =>
           `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
       ),
@@ -131,6 +134,7 @@ export const evaluateRouteMove = ({
       candidateRoutes,
       new Set([activeRouteIndex]),
       margin,
+      geometryCache,
     )
 
     for (const conflict of adjacencyConflicts) {
@@ -184,8 +188,12 @@ export const evaluateRouteMove = ({
 
   if (
     !rejected &&
-    findClearanceConflictPairs(candidateRoutes, candidateRouteIndexes, 0)
-      .length > 0
+    findClearanceConflictPairs(
+      candidateRoutes,
+      candidateRouteIndexes,
+      0,
+      geometryCache,
+    ).length > 0
   ) {
     rejected = true
     rejectionReason = "eventual-overlap"

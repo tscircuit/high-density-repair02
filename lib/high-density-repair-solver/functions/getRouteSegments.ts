@@ -1,24 +1,10 @@
-import { DEFAULT_TRACE_THICKNESS } from "../shared/constants"
-import type { HdRoute, Segment } from "../shared/types"
-import { getRoutePointLayer } from "./getRoutePointLayer"
+import type { HdRoute, RouteGeometryCache, Segment } from "../shared/types"
+import { getRouteGeometry } from "./getRouteGeometry"
 
 export const getRouteSegments = (
   route: HdRoute,
   routeIndex: number,
+  cache?: RouteGeometryCache,
 ): Segment[] => {
-  const points = route.route ?? []
-  const segments: Segment[] = []
-
-  for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex += 1) {
-    segments.push({
-      start: points[pointIndex],
-      end: points[pointIndex + 1],
-      routeIndex,
-      pointIndex,
-      thickness: route.traceThickness ?? DEFAULT_TRACE_THICKNESS,
-      layer: getRoutePointLayer(points[pointIndex]),
-    })
-  }
-
-  return segments
+  return getRouteGeometry(route, routeIndex, cache).segments
 }

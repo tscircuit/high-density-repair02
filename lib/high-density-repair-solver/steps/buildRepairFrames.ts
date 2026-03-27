@@ -6,6 +6,7 @@ import { BOUNDARY_SIDES } from "../shared/constants"
 import type {
   BuildRepairFramesResult,
   DatasetSample,
+  RouteGeometryCache,
   VisualizationFrame,
 } from "../shared/types"
 import { processBoundarySide } from "./processBoundarySide"
@@ -40,6 +41,7 @@ export const buildRepairFrames = (
     createInitialFrame(cloneRoutes(repairedRoutes), boundary, margin, gridStep),
   ]
   const lockedTwoPointRoutes = new Set<number>()
+  const geometryCache: RouteGeometryCache = new WeakMap()
 
   for (const side of BOUNDARY_SIDES) {
     processBoundarySide({
@@ -51,6 +53,7 @@ export const buildRepairFrames = (
       repairedRoutes,
       frames,
       lockedTwoPointRoutes,
+      geometryCache,
     })
   }
 

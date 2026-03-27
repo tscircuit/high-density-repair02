@@ -7,6 +7,7 @@ import type {
   BoundarySide,
   DatasetSample,
   HdRoute,
+  RouteGeometryCache,
   VisualizationFrame,
 } from "../shared/types"
 import { evaluateRouteMove } from "./evaluateRouteMove"
@@ -20,6 +21,7 @@ export const processBoundarySide = ({
   repairedRoutes,
   frames,
   lockedTwoPointRoutes,
+  geometryCache,
 }: {
   side: BoundarySide
   sample: DatasetSample | undefined
@@ -29,6 +31,7 @@ export const processBoundarySide = ({
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
   lockedTwoPointRoutes: Set<number>
+  geometryCache: RouteGeometryCache
 }) => {
   const { hasObstacle, moveAmount } = getMoveAmountForSide(
     sample,
@@ -71,6 +74,7 @@ export const processBoundarySide = ({
       margin,
       gridStep,
       moveAmount,
+      geometryCache,
     })
     if (!evaluation) continue
 
