@@ -6,7 +6,9 @@
   "main": "lib/index.ts",
   "module": "lib/index.ts",
   "types": "lib/index.ts",
-  "files": ["lib"],
+  "files": [
+    "lib"
+  ],
   "scripts": {
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
@@ -23,7 +25,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "graphics-debug": "^0.0.88",
+    "graphics-debug": "^0.0.89",
     "react": "^19.2.4",
     "react-cosmos": "^7.2.0",
     "react-cosmos-plugin-vite": "^7.2.0",
