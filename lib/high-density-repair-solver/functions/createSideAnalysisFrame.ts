@@ -6,7 +6,6 @@ import type {
   VisualizationFrame,
 } from "../shared/types"
 import { createBoundaryGridLines } from "./createBoundaryGridLines"
-import { createMovementArrow } from "./createMovementArrow"
 import { createSideStripRect } from "./createSideStripRect"
 
 export const createSideAnalysisFrame = (
@@ -31,5 +30,4 @@ export const createSideAnalysisFrame = (
       `strip:${side}`,
     ),
   ],
-  overlayArrows: [createMovementArrow(boundary, side, moveAmount)],
 })

@@ -7,13 +7,14 @@ export const createSideStripRect = (
   fill: string,
   label: string,
 ) => {
+  const stroke = "rgba(0, 0, 0, 0)"
   switch (side) {
     case "left":
       return {
         center: { x: boundary.minX + depth / 2, y: boundary.center.y },
         width: depth,
         height: boundary.height,
-        stroke: "#f59e0b",
+        stroke,
         fill,
         label,
       }
@@ -22,7 +23,7 @@ export const createSideStripRect = (
         center: { x: boundary.maxX - depth / 2, y: boundary.center.y },
         width: depth,
         height: boundary.height,
-        stroke: "#f59e0b",
+        stroke,
         fill,
         label,
       }
@@ -31,7 +32,7 @@ export const createSideStripRect = (
         center: { x: boundary.center.x, y: boundary.maxY - depth / 2 },
         width: boundary.width,
         height: depth,
-        stroke: "#f59e0b",
+        stroke,
         fill,
         label,
       }
@@ -40,7 +41,7 @@ export const createSideStripRect = (
         center: { x: boundary.center.x, y: boundary.minY + depth / 2 },
         width: boundary.width,
         height: depth,
-        stroke: "#f59e0b",
+        stroke,
         fill,
         label,
       }
