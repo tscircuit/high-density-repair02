@@ -14,6 +14,7 @@
     "test": "bun test",
     "format": "biome check --write .",
     "format:check": "biome check .",
+    "benchmark:first-1000": "bun scripts/benchmark-first-1000.ts",
     "start": "cosmos",
     "build:site": "cosmos-export"
   },
