@@ -14,6 +14,7 @@ import { processBoundarySide } from "./processBoundarySide"
 export const buildRepairFrames = (
   sample: DatasetSample | undefined,
   requestedMargin: number | undefined,
+  captureProgressFrames = false,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const baseRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
@@ -37,9 +38,16 @@ export const buildRepairFrames = (
   }
 
   const gridStep = Math.max(margin / 2, 0.05)
-  const frames: VisualizationFrame[] = [
-    createInitialFrame(cloneRoutes(repairedRoutes), boundary, margin, gridStep),
-  ]
+  const frames: VisualizationFrame[] = captureProgressFrames
+    ? [
+        createInitialFrame(
+          cloneRoutes(repairedRoutes),
+          boundary,
+          margin,
+          gridStep,
+        ),
+      ]
+    : []
   const lockedTwoPointRoutes = new Set<number>()
   const geometryCache: RouteGeometryCache = new WeakMap()
 
@@ -52,6 +60,7 @@ export const buildRepairFrames = (
       gridStep,
       repairedRoutes,
       frames,
+      captureProgressFrames,
       lockedTwoPointRoutes,
       geometryCache,
     })

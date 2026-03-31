@@ -71,7 +71,11 @@ export class HighDensityRepairSolver extends BaseSolver {
   }
 
   private buildFrames() {
-    const result = buildRepairFrames(this.params.sample, this.params.margin)
+    const result = buildRepairFrames(
+      this.params.sample,
+      this.params.margin,
+      this.params.captureProgressFrames ?? false,
+    )
     this.frames = result.frames
     this.repairedRoutes = result.repairedRoutes
   }

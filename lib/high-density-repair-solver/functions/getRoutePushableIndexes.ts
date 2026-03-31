@@ -7,7 +7,8 @@ export const getRoutePushableIndexes = (
   preferredLayers: Array<"top" | "bottom" | "via">,
 ) => {
   const points = route.route ?? []
-  const pushableIndexes = new Set<number>()
+  const pushableIndexes: number[] = []
+  const pushableIndexSet = new Set<number>()
   const wantsAllLayers =
     preferredLayers.length === 0 || preferredLayers.includes("via")
 
@@ -17,32 +18,38 @@ export const getRoutePushableIndexes = (
 
   for (let index = 1; index < points.length - 1; index += 1) {
     if (wantsAllLayers) {
-      pushableIndexes.add(index)
+      pushableIndexSet.add(index)
+      pushableIndexes.push(index)
       continue
     }
 
     if (preferredLayers.includes(getRoutePointLayer(points[index]))) {
-      pushableIndexes.add(index)
+      pushableIndexSet.add(index)
+      pushableIndexes.push(index)
     }
   }
 
-  const queue = Array.from(pushableIndexes)
-  while (queue.length > 0) {
-    const activeIndex = queue.shift() as number
+  for (
+    let queueIndex = 0;
+    queueIndex < pushableIndexes.length;
+    queueIndex += 1
+  ) {
+    const activeIndex = pushableIndexes[queueIndex] as number
     const activePoint = points[activeIndex]
     if (!activePoint) continue
 
     for (let index = 1; index < points.length - 1; index += 1) {
-      if (pushableIndexes.has(index)) continue
+      if (pushableIndexSet.has(index)) continue
       const point = points[index]
       if (!point) continue
       if (point.z === activePoint.z) continue
       if (!pointsCoincide(point, activePoint as RoutePoint)) continue
 
-      pushableIndexes.add(index)
-      queue.push(index)
+      pushableIndexSet.add(index)
+      pushableIndexes.push(index)
     }
   }
 
-  return Array.from(pushableIndexes).sort((a, b) => a - b)
+  pushableIndexes.sort((a, b) => a - b)
+  return pushableIndexes
 }

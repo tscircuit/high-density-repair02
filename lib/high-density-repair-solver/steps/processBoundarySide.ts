@@ -21,6 +21,7 @@ export const processBoundarySide = ({
   gridStep,
   repairedRoutes,
   frames,
+  captureProgressFrames,
   lockedTwoPointRoutes,
   geometryCache,
 }: {
@@ -31,6 +32,7 @@ export const processBoundarySide = ({
   gridStep: number
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
+  captureProgressFrames: boolean
   lockedTwoPointRoutes: Set<number>
   geometryCache: RouteGeometryCache
 }) => {
@@ -41,17 +43,19 @@ export const processBoundarySide = ({
     margin,
   )
 
-  frames.push(
-    createSideAnalysisFrame(
-      cloneRoutes(repairedRoutes),
-      boundary,
-      side,
-      margin,
-      moveAmount,
-      hasObstacle,
-      gridStep,
-    ),
-  )
+  if (captureProgressFrames) {
+    frames.push(
+      createSideAnalysisFrame(
+        cloneRoutes(repairedRoutes),
+        boundary,
+        side,
+        margin,
+        moveAmount,
+        hasObstacle,
+        gridStep,
+      ),
+    )
+  }
 
   const attemptedRoutes = new Set<number>()
 
@@ -79,25 +83,27 @@ export const processBoundarySide = ({
     })
     if (!evaluation) continue
 
-    frames.push(
-      createCandidateFrame({
-        routes: cloneRoutes(repairedRoutes),
-        candidateRoutes: evaluation.candidateRoutes,
-        candidateRouteIndexes: evaluation.candidateRouteIndexes,
-        originalRoutes: evaluation.rejected
-          ? undefined
-          : Array.from(evaluation.candidateRouteIndexes).map((index) =>
-              cloneRoute(repairedRoutes[index] as HdRoute),
-            ),
-        boundary,
-        side,
-        margin,
-        moveAmount,
-        gridStep,
-        rejected: evaluation.rejected,
-        rejectionReason: evaluation.rejectionReason,
-      }),
-    )
+    if (captureProgressFrames) {
+      frames.push(
+        createCandidateFrame({
+          routes: cloneRoutes(repairedRoutes),
+          candidateRoutes: evaluation.candidateRoutes,
+          candidateRouteIndexes: evaluation.candidateRouteIndexes,
+          originalRoutes: evaluation.rejected
+            ? undefined
+            : Array.from(evaluation.candidateRouteIndexes).map((index) =>
+                cloneRoute(repairedRoutes[index] as HdRoute),
+              ),
+          boundary,
+          side,
+          margin,
+          moveAmount,
+          gridStep,
+          rejected: evaluation.rejected,
+          rejectionReason: evaluation.rejectionReason,
+        }),
+      )
+    }
 
     if (!evaluation.rejected) {
       repairedRoutes.splice(

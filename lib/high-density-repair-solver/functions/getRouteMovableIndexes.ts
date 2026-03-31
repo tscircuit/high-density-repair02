@@ -14,7 +14,8 @@ export const getRouteMovableIndexes = (
   margin: number,
 ) => {
   const points = route.route ?? []
-  const movableIndexes = new Set<number>()
+  const movableIndexes: number[] = []
+  const movableIndexSet = new Set<number>()
   let firstMovableIndex = 1
   let lastMovableIndex = points.length - 2
 
@@ -40,36 +41,40 @@ export const getRouteMovableIndexes = (
 
   for (let index = firstMovableIndex; index <= lastMovableIndex; index += 1) {
     if (isPointNearSide(points[index], boundary, side, margin)) {
-      movableIndexes.add(index)
+      movableIndexSet.add(index)
+      movableIndexes.push(index)
     }
   }
 
-  const queue = Array.from(movableIndexes)
-  while (queue.length > 0) {
-    const activeIndex = queue.shift() as number
+  for (
+    let queueIndex = 0;
+    queueIndex < movableIndexes.length;
+    queueIndex += 1
+  ) {
+    const activeIndex = movableIndexes[queueIndex] as number
     const activePoint = points[activeIndex]
     if (!activePoint) continue
 
     for (let index = firstMovableIndex; index <= lastMovableIndex; index += 1) {
-      if (movableIndexes.has(index)) continue
+      if (movableIndexSet.has(index)) continue
       const point = points[index]
       if (!point) continue
       if (point.z === activePoint.z) continue
       if (!pointsCoincide(point, activePoint)) continue
 
-      movableIndexes.add(index)
-      queue.push(index)
+      movableIndexSet.add(index)
+      movableIndexes.push(index)
     }
   }
 
   if (
-    movableIndexes.size === 0 &&
+    movableIndexes.length === 0 &&
     points.length === 2 &&
     points.some((point) => isPointNearSide(point, boundary, side, margin))
   ) {
-    movableIndexes.add(0)
-    movableIndexes.add(1)
+    return [0, 1]
   }
 
-  return Array.from(movableIndexes).sort((a, b) => a - b)
+  movableIndexes.sort((a, b) => a - b)
+  return movableIndexes
 }

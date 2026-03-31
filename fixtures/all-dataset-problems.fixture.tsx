@@ -96,7 +96,12 @@ export default function AllDatasetProblemsFixture() {
       {sample ? (
         <GenericSolverDebugger
           key={selectedProblem.sampleName}
-          createSolver={() => new HighDensityRepairSolver({ sample })}
+          createSolver={() =>
+            new HighDensityRepairSolver({
+              sample,
+              captureProgressFrames: true,
+            })
+          }
         />
       ) : loadError ? null : (
         <div>Loading {selectedProblem.sampleName}...</div>
