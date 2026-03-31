@@ -1,0 +1,99 @@
+{
+  "sample": {
+    "nodeWithPortPoints": {
+      "capacityMeshNodeId": "cmn_72",
+      "center": {
+        "x": -6.0565,
+        "y": 12.375
+      },
+      "width": 2.2889999999999997,
+      "height": 0.6500000000000004,
+      "portPoints": [
+        {
+          "x": -5.776999999999999,
+          "y": 12.05,
+          "z": 0,
+          "connectionName": "source_trace_0__source_trace_1__source_net_4_mst1",
+          "portPointId": "ce494_pp3_z0::0"
+        },
+        {
+          "x": -4.912,
+          "y": 12.375,
+          "z": 0,
+          "connectionName": "source_trace_0__source_trace_1__source_net_4_mst1",
+          "portPointId": "ce188_pp0_z0::0"
+        }
+      ]
+    },
+    "nodeHdRoutes": [
+      {
+        "connectionName": "source_trace_4__source_trace_23__source_net_3_mst0",
+        "rootConnectionName": "source_trace_4__source_trace_23__source_net_3",
+        "route": [
+          {
+            "x": -5.552,
+            "y": 12.003,
+            "z": 0
+          },
+          {
+            "x": -4.912000000000001,
+            "y": 12.003,
+            "z": 0
+          }
+        ],
+        "traceThickness": 0.15,
+        "vias": [],
+        "viaDiameter": 0.3
+      },
+      {
+        "connectionName": "source_trace_0__source_trace_1__source_net_4_mst1",
+        "rootConnectionName": "source_trace_0__source_trace_1__source_net_4",
+        "route": [
+          {
+            "x": -5.776999999999999,
+            "y": 12.05,
+            "z": 0
+          },
+          {
+            "x": -4.912,
+            "y": 12.375,
+            "z": 0
+          }
+        ],
+        "traceThickness": 0.15,
+        "vias": [],
+        "viaDiameter": 0.3
+      }
+    ],
+    "adjacentObstacles": [
+      {
+        "type": "rect",
+        "center": {
+          "x": -6.871,
+          "y": 11.3
+        },
+        "width": 0.66,
+        "height": 1.5
+      },
+      {
+        "type": "rect",
+        "center": {
+          "x": -5.871,
+          "y": 11.3
+        },
+        "width": 0.66,
+        "height": 1.5
+      },
+      {
+        "type": "rect",
+        "center": {
+          "x": -5.232,
+          "y": 11.686
+        },
+        "width": 0.64,
+        "height": 0.54
+      }
+    ]
+  },
+  "margin": 0.2
+}

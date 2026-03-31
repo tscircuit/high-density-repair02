@@ -5,6 +5,7 @@ import { findClearanceConflicts } from "../functions/findClearanceConflicts"
 import { getRouteBoundaryOverflow } from "../functions/getRouteBoundaryOverflow"
 import { getRouteMovableIndexes } from "../functions/getRouteMovableIndexes"
 import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
+import { routeEndpointsStayOnBoundarySides } from "../functions/routeEndpointsStayOnBoundarySides"
 import { wouldIncreaseExposureOnOtherSides } from "../functions/wouldIncreaseExposureOnOtherSides"
 import type {
   BoundaryRect,
@@ -127,6 +128,18 @@ export const evaluateRouteMove = ({
     if (candidateBoundaryOverflow > originalBoundaryOverflow + 1e-6) {
       rejected = true
       rejectionReason = "boundary"
+      break
+    }
+
+    if (
+      !routeEndpointsStayOnBoundarySides(
+        currentRoutes[activeRouteIndex],
+        candidateRoutes[activeRouteIndex],
+        boundary,
+      )
+    ) {
+      rejected = true
+      rejectionReason = "endpoint-boundary"
       break
     }
 

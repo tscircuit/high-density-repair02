@@ -1,0 +1,134 @@
+{
+  "sample": {
+    "nodeWithPortPoints": {
+      "capacityMeshNodeId": "cmn_79",
+      "center": {
+        "x": -2.7549474999999997,
+        "y": 8.762999999999998
+      },
+      "width": 1.410005,
+      "height": 0.47000199999999914,
+      "portPoints": [
+        {
+          "x": -2.57505879999997,
+          "y": 8.99800089999999,
+          "z": 0,
+          "connectionName": "source_trace_4__source_trace_23__source_net_3_mst6",
+          "portPointId": "ce521_pp2_z0::0"
+        },
+        {
+          "x": -3.4599499999999996,
+          "y": 8.961500399999991,
+          "z": 0,
+          "connectionName": "source_trace_4__source_trace_23__source_net_3_mst6",
+          "portPointId": "ce522_pp0_z0_cramped::0"
+        },
+        {
+          "x": -2.282557899999985,
+          "y": 8.998000999999999,
+          "z": 0,
+          "connectionName": "source_trace_0__source_trace_1__source_net_4_mst2",
+          "portPointId": "ce524_pp0_z0_cramped::0"
+        },
+        {
+          "x": -2.0499450500000265,
+          "y": 8.762999999999998,
+          "z": 0,
+          "connectionName": "source_trace_0__source_trace_1__source_net_4_mst2",
+          "portPointId": "ce57_pp0_z0::0"
+        }
+      ]
+    },
+    "nodeHdRoutes": [
+      {
+        "connectionName": "source_trace_0__source_trace_1__source_net_4_mst2",
+        "rootConnectionName": "source_trace_0__source_trace_1__source_net_4",
+        "route": [
+          {
+            "x": -2.282557899999985,
+            "y": 8.998000999999999,
+            "z": 0
+          },
+          {
+            "x": -2.275,
+            "y": 9,
+            "z": 0
+          },
+          {
+            "x": -2.225,
+            "y": 8.95,
+            "z": 0
+          },
+          {
+            "x": -2.1750000000000003,
+            "y": 8.899999999999999,
+            "z": 0
+          },
+          {
+            "x": -2.1750000000000003,
+            "y": 8.849999999999998,
+            "z": 0
+          },
+          {
+            "x": -2.1250000000000004,
+            "y": 8.799999999999997,
+            "z": 0
+          },
+          {
+            "x": -2.0750000000000006,
+            "y": 8.799999999999997,
+            "z": 0
+          },
+          {
+            "x": -2.0499450500000265,
+            "y": 8.762999999999998,
+            "z": 0
+          }
+        ],
+        "traceThickness": 0.15,
+        "vias": [],
+        "viaDiameter": 0.3
+      },
+      {
+        "connectionName": "source_trace_4__source_trace_23__source_net_3_mst6",
+        "rootConnectionName": "source_trace_4__source_trace_23__source_net_3",
+        "route": [
+          {
+            "x": -2.57505879999997,
+            "y": 8.99800089999999,
+            "z": 0
+          },
+          {
+            "x": -3.4599499999999996,
+            "y": 8.961500399999991,
+            "z": 0
+          }
+        ],
+        "traceThickness": 0.15,
+        "vias": [],
+        "viaDiameter": 0.3
+      }
+    ],
+    "adjacentObstacles": [
+      {
+        "type": "rect",
+        "center": {
+          "x": -3.099943000000053,
+          "y": 8.128
+        },
+        "width": 2.0999958,
+        "height": 0.7999983999999999
+      },
+      {
+        "type": "rect",
+        "center": {
+          "x": -3.2500569999999698,
+          "y": 9.397999999999982
+        },
+        "width": 1.7999964,
+        "height": 0.7999983999999999
+      }
+    ]
+  },
+  "margin": 0.2
+}
