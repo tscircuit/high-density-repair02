@@ -55,6 +55,12 @@ export type RouteVia = {
 export type RouteGeometry = {
   segments: Segment[]
   vias: RouteVia[]
+  bounds: {
+    minX: number
+    maxX: number
+    minY: number
+    maxY: number
+  }
 }
 
 export type RouteGeometryCache = WeakMap<HdRoute, RouteGeometry>

@@ -102,7 +102,6 @@ export const createMovedRoute = (
   const getContactRank = (
     contactState: ReturnType<typeof getRouteSideContactState>,
   ) => (contactState === "none" ? 0 : contactState === "endpoint" ? 1 : 2)
-
   const isScoreBetter = (
     score: {
       activeExposure: number

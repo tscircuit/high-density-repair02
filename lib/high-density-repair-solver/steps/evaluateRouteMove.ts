@@ -181,7 +181,7 @@ export const evaluateRouteMove = ({
     }
   }
 
-  if (!rejected) {
+  if (!rejected && candidateRouteIndexes.size > 1) {
     const currentConflictKeys = getConflictKeys(
       currentRoutes,
       candidateRouteIndexes,
@@ -201,6 +201,7 @@ export const evaluateRouteMove = ({
 
   if (
     !rejected &&
+    candidateRouteIndexes.size > 1 &&
     findClearanceConflictPairs(
       candidateRoutes,
       candidateRouteIndexes,
