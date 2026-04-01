@@ -9,6 +9,9 @@ import {
 } from "node:worker_threads"
 import type { DatasetSample } from "../lib/high-density-repair-solver"
 import { HighDensityRepairSolver } from "../lib/high-density-repair-solver"
+import { findBufferZoneSegmentsNotStraightFromBoundary } from "../lib/high-density-repair-solver/functions/findBufferZoneSegmentsNotStraightFromBoundary"
+import { findInteriorDiagonalSegmentsInBufferZone } from "../lib/high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
+import { getBoundaryRect } from "../lib/high-density-repair-solver/functions/getBoundaryRect"
 
 // Run with: bun run benchmark:first-1000
 
@@ -32,6 +35,11 @@ type WorkerDoneMessage = {
   iterations: number
   elapsedMs: number
   frameCount: number
+  totalTraceCount: number
+  boundaryHitCount: number
+  boundaryHitTraceCount: number
+  bufferHitCount: number
+  bufferHitTraceCount: number
 }
 
 type WorkerErrorMessage = {
@@ -52,6 +60,11 @@ type SampleResult = {
   iterations: number
   elapsedMs: number
   frameCount: number
+  totalTraceCount: number
+  boundaryHitCount: number
+  boundaryHitTraceCount: number
+  bufferHitCount: number
+  bufferHitTraceCount: number
   error?: string
 }
 
@@ -61,6 +74,8 @@ type RunningSampleState = {
 }
 
 const formatMs = (ms: number) => `${ms.toFixed(2)}ms`
+const formatSummaryLine = (label: string, value: string | number) =>
+  `  ${label.padEnd(22)} ${value}`
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : String(error)
 
@@ -132,12 +147,38 @@ const runWorker = async () => {
       return
     }
 
+    const boundary = getBoundaryRect(sample.nodeWithPortPoints)
+    const boundaryHits = boundary
+      ? findInteriorDiagonalSegmentsInBufferZone(
+          solver.repairedRoutes,
+          boundary,
+          margin,
+        )
+      : []
+    const bufferHits = boundary
+      ? findBufferZoneSegmentsNotStraightFromBoundary(
+          solver.repairedRoutes,
+          boundary,
+          margin,
+        )
+      : []
+    const boundaryHitTraceCount = new Set(
+      boundaryHits.map((hit) => hit.routeIndex),
+    ).size
+    const bufferHitTraceCount = new Set(bufferHits.map((hit) => hit.routeIndex))
+      .size
+
     parentPort?.postMessage({
       type: "done",
       sampleName,
       iterations: solver.iterations,
       elapsedMs,
       frameCount: output?.frameCount ?? 0,
+      totalTraceCount: solver.repairedRoutes.length,
+      boundaryHitCount: boundaryHits.length,
+      boundaryHitTraceCount,
+      bufferHitCount: bufferHits.length,
+      bufferHitTraceCount,
     } satisfies WorkerDoneMessage)
   } catch (error) {
     parentPort?.postMessage({
@@ -205,16 +246,37 @@ const runMain = async () => {
           iterations: message.iterations,
           elapsedMs: message.elapsedMs,
           frameCount: message.frameCount,
+          totalTraceCount: message.totalTraceCount,
+          boundaryHitCount: message.boundaryHitCount,
+          boundaryHitTraceCount: message.boundaryHitTraceCount,
+          bufferHitCount: message.bufferHitCount,
+          bufferHitTraceCount: message.bufferHitTraceCount,
         })
-        console.log(
-          `[sample-done] ${message.sampleName} worker=${workerId} iterations=${message.iterations} frames=${message.frameCount} time=${formatMs(message.elapsedMs)}`,
-        )
+        if (message.boundaryHitCount > 0 || message.bufferHitCount > 0) {
+          const hitParts = [
+            message.boundaryHitCount > 0
+              ? `boundaryHits=${message.boundaryHitCount} boundaryHitTraces=${message.boundaryHitTraceCount}`
+              : null,
+            message.bufferHitCount > 0
+              ? `bufferHits=${message.bufferHitCount} bufferHitTraces=${message.bufferHitTraceCount}`
+              : null,
+          ].filter(Boolean)
+
+          console.log(
+            `[sample-hit] ${message.sampleName} worker=${workerId} iterations=${message.iterations} frames=${message.frameCount} traces=${message.totalTraceCount} ${hitParts.join(" ")} time=${formatMs(message.elapsedMs)}`,
+          )
+        }
       } else {
         results.push({
           sampleName: message.sampleName,
           iterations: message.iterations,
           elapsedMs: message.elapsedMs,
           frameCount: 0,
+          totalTraceCount: 0,
+          boundaryHitCount: 0,
+          boundaryHitTraceCount: 0,
+          bufferHitCount: 0,
+          bufferHitTraceCount: 0,
           error: message.error,
         })
         console.log(
@@ -227,22 +289,58 @@ const runMain = async () => {
       if (completed >= samplePaths.length) {
         const failed = results.filter((result) => result.error).length
         const succeeded = results.length - failed
+        const succeededResults = results.filter((result) => !result.error)
         const totalSampleSolveTimeMs = results.reduce(
           (sum, result) => sum + result.elapsedMs,
           0,
         )
+        const totalTraceCount = results.reduce(
+          (sum, result) => sum + result.totalTraceCount,
+          0,
+        )
+        const boundaryRepairedSampleCount = succeededResults.filter(
+          (result) => result.boundaryHitCount === 0,
+        ).length
+        const bufferRepairedSampleCount = succeededResults.filter(
+          (result) => result.bufferHitCount === 0,
+        ).length
+        const boundaryRepairPercent =
+          succeeded > 0 ? (boundaryRepairedSampleCount / succeeded) * 100 : 0
+        const bufferRepairPercent =
+          succeeded > 0 ? (bufferRepairedSampleCount / succeeded) * 100 : 0
 
         console.log("")
         console.log("Benchmark summary")
-        console.log(`  samples=${results.length}`)
-        console.log(`  succeeded=${succeeded}`)
-        console.log(`  failed=${failed}`)
-        console.log(`  totalIterations=${totalIterations}`)
+        console.log(formatSummaryLine("Samples", results.length))
+        console.log(formatSummaryLine("Succeeded", succeeded))
+        console.log(formatSummaryLine("Failed", failed))
+        console.log(formatSummaryLine("Total traces", totalTraceCount))
+        console.log(formatSummaryLine("Total iterations", totalIterations))
         console.log(
-          `  totalSampleSolveTime=${formatMs(totalSampleSolveTimeMs)}`,
+          formatSummaryLine(
+            "Total solve time",
+            formatMs(totalSampleSolveTimeMs),
+          ),
         )
         console.log(
-          `  averageSampleSolveTime=${formatMs(totalSampleSolveTimeMs / results.length)}`,
+          formatSummaryLine(
+            "Average solve time",
+            formatMs(totalSampleSolveTimeMs / results.length),
+          ),
+        )
+        console.log("")
+        console.log("Repairs")
+        console.log(
+          formatSummaryLine(
+            "Boundary",
+            `${boundaryRepairedSampleCount}/${succeeded} (${boundaryRepairPercent.toFixed(2)}%)`,
+          ),
+        )
+        console.log(
+          formatSummaryLine(
+            `Boundary buffer ${margin} mm area`,
+            `${bufferRepairedSampleCount}/${succeeded} (${bufferRepairPercent.toFixed(2)}%)`,
+          ),
         )
 
         process.exitCode = failed > 0 ? 1 : 0
@@ -264,6 +362,11 @@ const runMain = async () => {
         iterations: 0,
         elapsedMs: performance.now() - startedAt,
         frameCount: 0,
+        totalTraceCount: 0,
+        boundaryHitCount: 0,
+        boundaryHitTraceCount: 0,
+        bufferHitCount: 0,
+        bufferHitTraceCount: 0,
         error: errorMessage,
       })
 

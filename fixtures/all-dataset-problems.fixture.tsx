@@ -1,12 +1,52 @@
 import { GenericSolverDebugger } from "@tscircuit/solver-utils/react"
 import { datasetProblems } from "fixtures/dataset"
+import type { GraphicsObject } from "graphics-debug"
 import { HighDensityRepairSolver } from "lib/high-density-repair-solver"
-import { useEffect, useState } from "react"
+import { createSideStripRect } from "lib/high-density-repair-solver/functions/createSideStripRect"
+import { getBoundaryRect } from "lib/high-density-repair-solver/functions/getBoundaryRect"
+import { BOUNDARY_SIDES } from "lib/high-density-repair-solver/shared/constants"
+import type { DatasetSample } from "lib/high-density-repair-solver/shared/types"
+import { useEffect, useMemo, useState } from "react"
+
+class FixtureDebugHighDensityRepairSolver extends HighDensityRepairSolver {
+  override visualize(): GraphicsObject {
+    const graphics = super.visualize()
+    const node = this.params.sample?.nodeWithPortPoints
+    const boundary = getBoundaryRect(node)
+
+    if (!boundary) return graphics
+
+    const nodeRect = {
+      center: boundary.center,
+      width: boundary.width,
+      height: boundary.height,
+      stroke: "#1d4ed8",
+      fill: "rgba(29, 78, 216, 0.08)",
+      label: node?.capacityMeshNodeId ?? "capacity-node",
+    }
+
+    const boundaryZoneRects = BOUNDARY_SIDES.map((side) =>
+      createSideStripRect(
+        boundary,
+        side,
+        this.params.margin ?? 0.4,
+        "rgba(29, 78, 216, 0.12)",
+        `boundary-zone:${side}`,
+      ),
+    )
+
+    return {
+      ...graphics,
+      rects: [nodeRect, ...boundaryZoneRects, ...(graphics.rects ?? [])],
+    }
+  }
+}
 
 export default function AllDatasetProblemsFixture() {
   const [sampleNumberInput, setSampleNumberInput] = useState("1")
-  const [sample, setSample] = useState<unknown>(null)
+  const [sample, setSample] = useState<DatasetSample | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const margin = 0.4
 
   const maxSampleNumber = datasetProblems.length
   const parsedSampleNumber = Number.parseInt(sampleNumberInput, 10)
@@ -49,6 +89,14 @@ export default function AllDatasetProblemsFixture() {
       cancelled = true
     }
   }, [selectedProblem])
+
+  const solver = useMemo(
+    () =>
+      sample
+        ? new FixtureDebugHighDensityRepairSolver({ sample, margin })
+        : null,
+    [margin, sample],
+  )
 
   if (!selectedProblem) {
     return <div>Dataset is empty.</div>

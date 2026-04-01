@@ -17,7 +17,6 @@ export const createCandidateFrame = ({
   boundary,
   side,
   margin,
-  moveAmount,
   gridStep,
   rejected,
   rejectionReason,
@@ -29,7 +28,6 @@ export const createCandidateFrame = ({
   boundary: BoundaryRect
   side: BoundarySide
   margin: number
-  moveAmount: number
   gridStep: number
   rejected: boolean
   rejectionReason: string
