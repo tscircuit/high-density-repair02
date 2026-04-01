@@ -97,7 +97,6 @@ export const processBoundarySide = ({
           boundary,
           side,
           margin,
-          moveAmount,
           gridStep,
           rejected: evaluation.rejected,
           rejectionReason: evaluation.rejectionReason,
