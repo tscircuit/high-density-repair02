@@ -12,8 +12,8 @@
   "scripts": {
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
-    "format": "biome check --write .",
-    "format:check": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "benchmark:first-1000": "bun scripts/benchmark-first-1000.ts",
     "start": "cosmos",
     "build:site": "cosmos-export"
