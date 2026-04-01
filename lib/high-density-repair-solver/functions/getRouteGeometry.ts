@@ -3,8 +3,23 @@ import type {
   HdRoute,
   RouteGeometry,
   RouteGeometryCache,
+  RoutePoint,
 } from "../shared/types"
 import { getRoutePointLayer } from "./getRoutePointLayer"
+
+const isCollinearSameLayerChain = (
+  start: RoutePoint,
+  middle: RoutePoint,
+  end: RoutePoint,
+) => {
+  if ((start.z ?? 0) !== (middle.z ?? 0)) return false
+  if ((middle.z ?? 0) !== (end.z ?? 0)) return false
+
+  return (
+    (start.x === middle.x && middle.x === end.x) ||
+    (start.y === middle.y && middle.y === end.y)
+  )
+}
 
 export const getRouteGeometry = (
   route: HdRoute,
@@ -53,13 +68,32 @@ export const getRouteGeometry = (
     },
   }
 
-  for (let pointIndex = 0; pointIndex < points.length - 1; pointIndex += 1) {
+  for (let pointIndex = 0; pointIndex < points.length - 1; ) {
     const start = points[pointIndex]
-    const end = points[pointIndex + 1]
+    let endIndex = pointIndex + 1
+    let end = points[endIndex]
     const padding = thickness / 2
 
     if (start) extendBounds(start.x, start.y, padding)
     if (end) extendBounds(end.x, end.y, padding)
+
+    while (endIndex < points.length - 1) {
+      const middle = points[endIndex]
+      const next = points[endIndex + 1]
+      if (!start || !middle || !next) break
+      if (getRoutePointLayer(start) !== getRoutePointLayer(middle)) break
+      if (getRoutePointLayer(middle) !== getRoutePointLayer(next)) break
+      if (!isCollinearSameLayerChain(start, middle, next)) break
+
+      endIndex += 1
+      end = next
+      extendBounds(next.x, next.y, padding)
+    }
+
+    if (!start || !end) {
+      pointIndex += 1
+      continue
+    }
 
     geometry.segments.push({
       start,
@@ -67,8 +101,10 @@ export const getRouteGeometry = (
       routeIndex,
       pointIndex,
       thickness,
-      layer: getRoutePointLayer(points[pointIndex]),
+      layer: getRoutePointLayer(start),
     })
+
+    pointIndex = endIndex
   }
 
   if (!hasBounds) {

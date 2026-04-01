@@ -18,8 +18,8 @@ export const buildRepairFrames = (
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const baseRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
-  const repairedRoutes = cloneRoutes(baseRoutes)
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
+  const repairedRoutes = cloneRoutes(baseRoutes)
 
   if (!boundary) {
     return {
