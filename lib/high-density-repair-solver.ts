@@ -1,6 +1,8 @@
 import { BaseSolver } from "@tscircuit/solver-utils"
 import type { GraphicsObject } from "graphics-debug"
 import { cloneRoutes } from "./high-density-repair-solver/functions/cloneRoutes"
+import { createBoundaryHitRects } from "./high-density-repair-solver/functions/createBoundaryHitRects"
+import { findInteriorDiagonalSegmentsInBufferZone } from "./high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
 import { getBoundaryRect } from "./high-density-repair-solver/functions/getBoundaryRect"
 import { getRoutePointLayer } from "./high-density-repair-solver/functions/getRoutePointLayer"
 import { splitRouteIntoLayerSegments } from "./high-density-repair-solver/functions/splitRouteIntoLayerSegments"
@@ -22,6 +24,7 @@ export type {
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
   private currentFrameIndex = 0
+  private showBoundaryHitMarkers = true
   public repairedRoutes: HdRoute[] = []
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
@@ -30,7 +33,9 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   override _setup(): void {
     this.buildFrames()
+    const boundaryHitCount = this.getCurrentBoundaryHitCount()
     this.stats = {
+      boundaryHitCount,
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
@@ -39,6 +44,11 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   override _step(): void {
     if (this.frames.length <= 1) {
+      const boundaryHitCount = this.getCurrentBoundaryHitCount()
+      this.stats = {
+        ...this.stats,
+        boundaryHitCount,
+      }
       this.solved = true
       return
     }
@@ -47,8 +57,11 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.currentFrameIndex += 1
     }
 
+    const boundaryHitCount = this.getCurrentBoundaryHitCount()
     this.stats = {
-      ...this.stats,
+      boundaryHitCount,
+      margin: this.params.margin ?? 0.4,
+      frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
       title: this.frames[this.currentFrameIndex]?.title,
     }
@@ -70,6 +83,10 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
   }
 
+  setShowBoundaryHitMarkers(show: boolean): void {
+    this.showBoundaryHitMarkers = show
+  }
+
   private buildFrames() {
     const result = buildRepairFrames(
       this.params.sample,
@@ -80,14 +97,35 @@ export class HighDensityRepairSolver extends BaseSolver {
     this.repairedRoutes = result.repairedRoutes
   }
 
+  private getCurrentFrame(): VisualizationFrame {
+    const sample = this.params.sample
+    return (
+      this.frames[this.currentFrameIndex] ?? {
+        title: "HighDensityRepair02",
+        routes: cloneRoutes(sample?.nodeHdRoutes ?? []),
+      }
+    )
+  }
+
+  private getBoundaryHitsForFrame(frame: VisualizationFrame) {
+    const boundary = getBoundaryRect(this.params.sample?.nodeWithPortPoints)
+    if (!boundary) return []
+    return findInteriorDiagonalSegmentsInBufferZone(
+      frame.routes,
+      boundary,
+      this.params.margin ?? 0.4,
+    )
+  }
+
+  private getCurrentBoundaryHitCount(): number {
+    return this.getBoundaryHitsForFrame(this.getCurrentFrame()).length
+  }
+
   override visualize(): GraphicsObject {
     const sample = this.params.sample
     const node = sample?.nodeWithPortPoints
     const obstacles = sample?.adjacentObstacles ?? []
-    const frame = this.frames[this.currentFrameIndex] ?? {
-      title: "HighDensityRepair02",
-      routes: cloneRoutes(sample?.nodeHdRoutes ?? []),
-    }
+    const frame = this.getCurrentFrame()
     const boundary = getBoundaryRect(node)
 
     const nodeRect =
@@ -132,6 +170,11 @@ export class HighDensityRepairSolver extends BaseSolver {
           ? `obstacle:${obstacle.type}:${idx}`
           : `obstacle:${idx}`,
       }))
+
+    const boundaryHitRects =
+      this.showBoundaryHitMarkers && boundary
+        ? createBoundaryHitRects(this.getBoundaryHitsForFrame(frame))
+        : []
 
     const points = [
       ...(node?.portPoints ?? []).map((portPoint) => ({
@@ -183,7 +226,12 @@ export class HighDensityRepairSolver extends BaseSolver {
     return {
       coordinateSystem: "cartesian",
       title: frame.title,
-      rects: [...nodeRect, ...obstacleRects, ...(frame.overlayRects ?? [])],
+      rects: [
+        ...nodeRect,
+        ...obstacleRects,
+        ...(frame.overlayRects ?? []),
+        ...boundaryHitRects,
+      ],
       points,
       lines,
       circles,
