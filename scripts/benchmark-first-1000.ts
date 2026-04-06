@@ -110,7 +110,11 @@ const runWorker = async () => {
     workerData as WorkerInput
 
   const sample = (await Bun.file(samplePath).json()) as DatasetSample
-  const solver = new HighDensityRepairSolver({ sample, margin })
+  const solver = new HighDensityRepairSolver({
+    sample,
+    margin,
+    captureProgressFrames: true,
+  })
   const startedAt = performance.now()
   let lastProgressAt = startedAt
 
