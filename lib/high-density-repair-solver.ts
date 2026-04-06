@@ -24,11 +24,12 @@ export type {
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
   private currentFrameIndex = 0
-  private showBoundaryHitMarkers = true
+  private showBoundaryHitMarkers: boolean
   public repairedRoutes: HdRoute[] = []
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
+    this.showBoundaryHitMarkers = params.showBoundaryHitMarkers ?? false
   }
 
   override _setup(): void {
@@ -45,6 +46,7 @@ export class HighDensityRepairSolver extends BaseSolver {
   override _step(): void {
     if (this.frames.length <= 1) {
       const boundaryHitCount = this.getCurrentBoundaryHitCount()
+      this.showBoundaryHitMarkers = true
       this.stats = {
         ...this.stats,
         boundaryHitCount,
@@ -67,6 +69,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
 
     if (this.currentFrameIndex >= this.frames.length - 1) {
+      this.showBoundaryHitMarkers = true
       this.solved = true
     }
   }

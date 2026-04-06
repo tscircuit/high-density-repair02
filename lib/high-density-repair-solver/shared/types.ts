@@ -110,6 +110,7 @@ export interface HighDensityRepairSolverParams {
   sample?: DatasetSample
   margin?: number
   captureProgressFrames?: boolean
+  showBoundaryHitMarkers?: boolean
 }
 
 export type BuildRepairFramesResult = {
