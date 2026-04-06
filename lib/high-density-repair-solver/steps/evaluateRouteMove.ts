@@ -1,7 +1,10 @@
 import { cloneRoutes } from "../functions/cloneRoutes"
 import { createMovedRoute } from "../functions/createMovedRoute"
+import { findBoundaryTouchRegressions } from "../functions/findBoundaryTouchRegressions"
 import { findClearanceConflictPairs } from "../functions/findClearanceConflictPairs"
 import { findClearanceConflicts } from "../functions/findClearanceConflicts"
+import { findNewUnpushableZeroClearanceConflicts } from "../functions/findNewUnpushableZeroClearanceConflicts"
+import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
 import { getRouteBoundaryOverflow } from "../functions/getRouteBoundaryOverflow"
 import { getRouteMovableIndexes } from "../functions/getRouteMovableIndexes"
 import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
@@ -211,6 +214,49 @@ export const evaluateRouteMove = ({
   ) {
     rejected = true
     rejectionReason = "eventual-overlap"
+  }
+
+  if (!rejected) {
+    const boundaryTouchRegressions = findBoundaryTouchRegressions({
+      currentRoutes,
+      candidateRoutes,
+      candidateRouteIndexes,
+      boundary,
+      activeSide: side,
+    })
+
+    if (boundaryTouchRegressions.length > 0) {
+      rejected = true
+      rejectionReason = "boundary-touch"
+    }
+  }
+
+  if (!rejected) {
+    const fixedTraceTouches = findNewUnpushableZeroClearanceConflicts({
+      currentRoutes,
+      candidateRoutes,
+      candidateRouteIndexes,
+      geometryCache,
+    })
+
+    if (fixedTraceTouches.length > 0) {
+      rejected = true
+      rejectionReason = "fixed-trace-touch"
+    }
+  }
+
+  if (!rejected) {
+    const traceClearanceRegressions = findTraceClearanceRegressions({
+      currentRoutes,
+      candidateRoutes,
+      candidateRouteIndexes,
+      maximumAllowedClearance: Math.min(moveAmount / 2, 0.1),
+    })
+
+    if (traceClearanceRegressions.length > 0) {
+      rejected = true
+      rejectionReason = "trace-clearance"
+    }
   }
 
   if (
