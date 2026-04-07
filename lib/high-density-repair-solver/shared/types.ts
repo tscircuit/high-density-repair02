@@ -43,7 +43,12 @@ export type Segment = {
   routeIndex: number
   pointIndex: number
   thickness: number
+  halfThickness: number
   layer: "top" | "bottom"
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
 }
 
 export type RouteVia = {
@@ -54,6 +59,10 @@ export type RouteVia = {
 
 export type RouteGeometry = {
   segments: Segment[]
+  segmentsByLayer: {
+    top: Segment[]
+    bottom: Segment[]
+  }
   vias: RouteVia[]
   bounds: {
     minX: number

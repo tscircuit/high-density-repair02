@@ -1,8 +1,10 @@
 import { cloneRoutes } from "../functions/cloneRoutes"
 import { createMovedRoute } from "../functions/createMovedRoute"
 import { findBoundaryTouchRegressions } from "../functions/findBoundaryTouchRegressions"
-import { findClearanceConflictPairs } from "../functions/findClearanceConflictPairs"
-import { findClearanceConflicts } from "../functions/findClearanceConflicts"
+import {
+  findClearanceConflicts,
+  type ClearanceConflict,
+} from "../functions/findClearanceConflicts"
 import { findNewUnpushableZeroClearanceConflicts } from "../functions/findNewUnpushableZeroClearanceConflicts"
 import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
 import { getRouteBoundaryOverflow } from "../functions/getRouteBoundaryOverflow"
@@ -35,14 +37,6 @@ export const evaluateRouteMove = ({
   moveAmount: number
   geometryCache: RouteGeometryCache
 }): EvaluateRouteMoveResult | null => {
-  const getConflictKeys = (routes: HdRoute[], movedIndexes: Set<number>) =>
-    new Set(
-      findClearanceConflicts(routes, movedIndexes, margin, geometryCache).map(
-        ({ routeIndexes, layers }) =>
-          `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
-      ),
-    )
-
   const route = currentRoutes[routeIndex]
   const isTwoPointRoute = (route.route?.length ?? 0) === 2
   const movableIndexes = getRouteMovableIndexes(route, boundary, side, margin)
@@ -62,6 +56,62 @@ export const evaluateRouteMove = ({
   ])
   const routeQueue = [routeIndex]
   let routeQueueIndex = 0
+  let currentMarginConflicts: ClearanceConflict[] | null = null
+  let candidateMarginConflicts: ClearanceConflict[] | null = null
+  let currentZeroConflicts: ClearanceConflict[] | null = null
+  let candidateZeroConflicts: ClearanceConflict[] | null = null
+
+  const getConflictKeys = (conflicts: ClearanceConflict[]) =>
+    new Set(
+      conflicts.map(
+        ({ routeIndexes, layers }) =>
+          `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`,
+      ),
+    )
+
+  const getCurrentMarginConflicts = () => {
+    if (currentMarginConflicts) return currentMarginConflicts
+    currentMarginConflicts = findClearanceConflicts(
+      currentRoutes,
+      candidateRouteIndexes,
+      margin,
+      geometryCache,
+    )
+    return currentMarginConflicts
+  }
+
+  const getCandidateMarginConflicts = () => {
+    if (candidateMarginConflicts) return candidateMarginConflicts
+    candidateMarginConflicts = findClearanceConflicts(
+      candidateRoutes,
+      candidateRouteIndexes,
+      margin,
+      geometryCache,
+    )
+    return candidateMarginConflicts
+  }
+
+  const getCurrentZeroConflicts = () => {
+    if (currentZeroConflicts) return currentZeroConflicts
+    currentZeroConflicts = findClearanceConflicts(
+      currentRoutes,
+      candidateRouteIndexes,
+      0,
+      geometryCache,
+    )
+    return currentZeroConflicts
+  }
+
+  const getCandidateZeroConflicts = () => {
+    if (candidateZeroConflicts) return candidateZeroConflicts
+    candidateZeroConflicts = findClearanceConflicts(
+      candidateRoutes,
+      candidateRouteIndexes,
+      0,
+      geometryCache,
+    )
+    return candidateZeroConflicts
+  }
 
   while (routeQueueIndex < routeQueue.length && !rejected) {
     const activeRouteIndex = routeQueue[routeQueueIndex] as number
@@ -180,14 +230,8 @@ export const evaluateRouteMove = ({
   }
 
   if (!rejected && candidateRouteIndexes.size > 1) {
-    const currentConflictKeys = getConflictKeys(
-      currentRoutes,
-      candidateRouteIndexes,
-    )
-    const candidateConflictKeys = getConflictKeys(
-      candidateRoutes,
-      candidateRouteIndexes,
-    )
+    const currentConflictKeys = getConflictKeys(getCurrentMarginConflicts())
+    const candidateConflictKeys = getConflictKeys(getCandidateMarginConflicts())
 
     for (const conflictKey of candidateConflictKeys) {
       if (currentConflictKeys.has(conflictKey)) continue
@@ -200,12 +244,7 @@ export const evaluateRouteMove = ({
   if (
     !rejected &&
     candidateRouteIndexes.size > 1 &&
-    findClearanceConflictPairs(
-      candidateRoutes,
-      candidateRouteIndexes,
-      0,
-      geometryCache,
-    ).length > 0
+    getCandidateZeroConflicts().length > 0
   ) {
     rejected = true
     rejectionReason = "eventual-overlap"
@@ -232,6 +271,8 @@ export const evaluateRouteMove = ({
       candidateRoutes,
       candidateRouteIndexes,
       geometryCache,
+      currentConflicts: getCurrentZeroConflicts(),
+      candidateConflicts: getCandidateZeroConflicts(),
     })
 
     if (fixedTraceTouches.length > 0) {

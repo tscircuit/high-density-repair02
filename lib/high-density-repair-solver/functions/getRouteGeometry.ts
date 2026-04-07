@@ -49,6 +49,10 @@ export const getRouteGeometry = (
 
   const geometry: RouteGeometry = {
     segments: [],
+    segmentsByLayer: {
+      top: [],
+      bottom: [],
+    },
     vias: (route.vias ?? []).map((via) => {
       const radius =
         (via.diameter ?? route.viaDiameter ?? DEFAULT_TRACE_THICKNESS * 2) / 2
@@ -95,14 +99,23 @@ export const getRouteGeometry = (
       continue
     }
 
-    geometry.segments.push({
+    const layer = getRoutePointLayer(start)
+    const segment = {
       start,
       end,
       routeIndex,
       pointIndex,
       thickness,
-      layer: getRoutePointLayer(start),
-    })
+      halfThickness: padding,
+      layer,
+      minX: Math.min(start.x, end.x) - padding,
+      maxX: Math.max(start.x, end.x) + padding,
+      minY: Math.min(start.y, end.y) - padding,
+      maxY: Math.max(start.y, end.y) + padding,
+    } satisfies RouteGeometry["segments"][number]
+
+    geometry.segments.push(segment)
+    geometry.segmentsByLayer[layer].push(segment)
 
     pointIndex = endIndex
   }
