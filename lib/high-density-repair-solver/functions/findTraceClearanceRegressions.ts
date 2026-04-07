@@ -1,5 +1,9 @@
 import { EPSILON } from "../shared/constants"
-import type { HdRoute, RouteGeometryCache } from "../shared/types"
+import type {
+  HdRoute,
+  RouteGeometry,
+  RouteGeometryCache,
+} from "../shared/types"
 import { getRouteGeometry } from "./getRouteGeometry"
 import { segmentDistance } from "./segmentDistance"
 
@@ -9,22 +13,29 @@ export type TraceClearanceRegression = {
   nextClearance: number
 }
 
-const getPairMinimumEdgeClearance = (
-  routes: HdRoute[],
-  firstRouteIndex: number,
-  secondRouteIndex: number,
-  cache?: RouteGeometryCache,
+const boundsMayHaveClearanceAtMost = (
+  firstBounds: RouteGeometry["bounds"],
+  secondBounds: RouteGeometry["bounds"],
+  maximumAllowedClearance: number,
 ) => {
-  const firstGeometry = getRouteGeometry(
-    routes[firstRouteIndex] as HdRoute,
-    firstRouteIndex,
-    cache,
+  const dx = Math.max(
+    0,
+    firstBounds.minX - secondBounds.maxX,
+    secondBounds.minX - firstBounds.maxX,
   )
-  const secondGeometry = getRouteGeometry(
-    routes[secondRouteIndex] as HdRoute,
-    secondRouteIndex,
-    cache,
+  const dy = Math.max(
+    0,
+    firstBounds.minY - secondBounds.maxY,
+    secondBounds.minY - firstBounds.maxY,
   )
+
+  return Math.hypot(dx, dy) <= maximumAllowedClearance + EPSILON
+}
+
+const getPairMinimumEdgeClearance = (
+  firstGeometry: RouteGeometry,
+  secondGeometry: RouteGeometry,
+) => {
   let minimumClearance = Number.POSITIVE_INFINITY
 
   for (const firstSegment of firstGeometry.segments) {
@@ -61,41 +72,72 @@ export const findTraceClearanceRegressions = ({
   const currentCache = new WeakMap()
   const candidateCache = new WeakMap()
   const regressions: TraceClearanceRegression[] = []
+  const movedRouteIndexes = Array.from(candidateRouteIndexes).sort(
+    (a, b) => a - b,
+  )
+  const currentGeometries = currentRoutes.map((route, routeIndex) =>
+    getRouteGeometry(route as HdRoute, routeIndex, currentCache),
+  )
+  const candidateGeometries = candidateRoutes.map((route, routeIndex) =>
+    getRouteGeometry(route as HdRoute, routeIndex, candidateCache),
+  )
+  const visitedPairKeys = new Set<string>()
 
-  for (
-    let firstRouteIndex = 0;
-    firstRouteIndex < candidateRoutes.length;
-    firstRouteIndex += 1
-  ) {
+  for (const movedRouteIndex of movedRouteIndexes) {
     for (
-      let secondRouteIndex = firstRouteIndex + 1;
-      secondRouteIndex < candidateRoutes.length;
-      secondRouteIndex += 1
+      let otherRouteIndex = 0;
+      otherRouteIndex < candidateRoutes.length;
+      otherRouteIndex += 1
     ) {
+      if (otherRouteIndex === movedRouteIndex) {
+        continue
+      }
+
+      const firstRouteIndex = Math.min(movedRouteIndex, otherRouteIndex)
+      const secondRouteIndex = Math.max(movedRouteIndex, otherRouteIndex)
+      const pairKey = `${firstRouteIndex}:${secondRouteIndex}`
+
+      if (visitedPairKeys.has(pairKey)) {
+        continue
+      }
+      visitedPairKeys.add(pairKey)
+
+      const candidateFirstGeometry = candidateGeometries[firstRouteIndex]
+      const candidateSecondGeometry = candidateGeometries[secondRouteIndex]
+
       if (
-        !candidateRouteIndexes.has(firstRouteIndex) &&
-        !candidateRouteIndexes.has(secondRouteIndex)
+        !candidateFirstGeometry ||
+        !candidateSecondGeometry ||
+        !boundsMayHaveClearanceAtMost(
+          candidateFirstGeometry.bounds,
+          candidateSecondGeometry.bounds,
+          maximumAllowedClearance,
+        )
+      ) {
+        continue
+      }
+
+      const nextClearance = getPairMinimumEdgeClearance(
+        candidateFirstGeometry,
+        candidateSecondGeometry,
+      )
+
+      if (
+        !Number.isFinite(nextClearance) ||
+        nextClearance > maximumAllowedClearance + EPSILON ||
+        !currentGeometries[firstRouteIndex] ||
+        !currentGeometries[secondRouteIndex]
       ) {
         continue
       }
 
       const previousClearance = getPairMinimumEdgeClearance(
-        currentRoutes,
-        firstRouteIndex,
-        secondRouteIndex,
-        currentCache,
-      )
-      const nextClearance = getPairMinimumEdgeClearance(
-        candidateRoutes,
-        firstRouteIndex,
-        secondRouteIndex,
-        candidateCache,
+        currentGeometries[firstRouteIndex] as RouteGeometry,
+        currentGeometries[secondRouteIndex] as RouteGeometry,
       )
 
       if (
         !Number.isFinite(previousClearance) ||
-        !Number.isFinite(nextClearance) ||
-        nextClearance > maximumAllowedClearance + EPSILON ||
         nextClearance >= previousClearance - EPSILON
       ) {
         continue

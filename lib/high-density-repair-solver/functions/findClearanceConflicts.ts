@@ -74,33 +74,16 @@ const segmentBoxesOverlap = (
   second: Segment,
   margin: number,
 ) => {
-  const firstHalfThickness = first.thickness / 2
-  const secondHalfThickness = second.thickness / 2
+  const firstHalfThickness = first.halfThickness
+  const secondHalfThickness = second.halfThickness
   const minDistanceAllowed =
     margin + firstHalfThickness + secondHalfThickness - EPSILON
 
-  const firstMinX =
-    Math.min(first.start.x, first.end.x) - firstHalfThickness - margin
-  const firstMaxX =
-    Math.max(first.start.x, first.end.x) + firstHalfThickness + margin
-  const firstMinY =
-    Math.min(first.start.y, first.end.y) - firstHalfThickness - margin
-  const firstMaxY =
-    Math.max(first.start.y, first.end.y) + firstHalfThickness + margin
-  const secondMinX =
-    Math.min(second.start.x, second.end.x) - secondHalfThickness
-  const secondMaxX =
-    Math.max(second.start.x, second.end.x) + secondHalfThickness
-  const secondMinY =
-    Math.min(second.start.y, second.end.y) - secondHalfThickness
-  const secondMaxY =
-    Math.max(second.start.y, second.end.y) + secondHalfThickness
-
   return (
-    firstMinX <= secondMaxX &&
-    firstMaxX >= secondMinX &&
-    firstMinY <= secondMaxY &&
-    firstMaxY >= secondMinY &&
+    first.minX - margin <= second.maxX &&
+    first.maxX + margin >= second.minX &&
+    first.minY - margin <= second.maxY &&
+    first.maxY + margin >= second.minY &&
     minDistanceAllowed > 0
   )
 }
@@ -111,26 +94,17 @@ const pointBoxOverlapsSegment = (
   segment: Segment,
   margin: number,
 ) => {
-  const minDistanceAllowed = margin + segment.thickness / 2 + radius - EPSILON
+  const minDistanceAllowed = margin + segment.halfThickness + radius - EPSILON
   const pointMinX = point.x - minDistanceAllowed
   const pointMaxX = point.x + minDistanceAllowed
   const pointMinY = point.y - minDistanceAllowed
   const pointMaxY = point.y + minDistanceAllowed
-  const segmentHalfThickness = segment.thickness / 2
-  const segmentMinX =
-    Math.min(segment.start.x, segment.end.x) - segmentHalfThickness
-  const segmentMaxX =
-    Math.max(segment.start.x, segment.end.x) + segmentHalfThickness
-  const segmentMinY =
-    Math.min(segment.start.y, segment.end.y) - segmentHalfThickness
-  const segmentMaxY =
-    Math.max(segment.start.y, segment.end.y) + segmentHalfThickness
 
   return (
-    pointMinX <= segmentMaxX &&
-    pointMaxX >= segmentMinX &&
-    pointMinY <= segmentMaxY &&
-    pointMaxY >= segmentMinY
+    pointMinX <= segment.maxX &&
+    pointMaxX >= segment.minX &&
+    pointMinY <= segment.maxY &&
+    pointMaxY >= segment.minY
   )
 }
 
@@ -211,8 +185,9 @@ export const findClearanceConflicts = (
         const otherGeometry = routeGeometries[otherRouteIndex]
         if (!otherGeometry) continue
 
-        for (const second of otherGeometry.segments) {
-          if (first.layer !== second.layer) continue
+        const sameLayerSegments = otherGeometry.segmentsByLayer[first.layer]
+
+        for (const second of sameLayerSegments) {
           if (segmentsShareEndpoint(first, second)) continue
           if (!segmentBoxesOverlap(first, second, margin)) continue
 

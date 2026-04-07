@@ -1,5 +1,8 @@
 import type { HdRoute, RouteGeometryCache } from "../shared/types"
-import { findClearanceConflicts } from "./findClearanceConflicts"
+import {
+  findClearanceConflicts,
+  type ClearanceConflict,
+} from "./findClearanceConflicts"
 import { getRoutePushableIndexes } from "./getRoutePushableIndexes"
 
 const getConflictKey = (
@@ -12,27 +15,41 @@ export const findNewUnpushableZeroClearanceConflicts = ({
   candidateRoutes,
   candidateRouteIndexes,
   geometryCache,
+  currentConflicts,
+  candidateConflicts,
 }: {
   currentRoutes: HdRoute[]
   candidateRoutes: HdRoute[]
   candidateRouteIndexes: Set<number>
   geometryCache?: RouteGeometryCache
+  currentConflicts?: ClearanceConflict[]
+  candidateConflicts?: ClearanceConflict[]
 }) => {
-  const currentConflictKeys = new Set(
+  const currentZeroConflicts =
+    currentConflicts ??
     findClearanceConflicts(
       currentRoutes,
       candidateRouteIndexes,
       0,
       geometryCache,
-    ).map((conflict) => getConflictKey(conflict.routeIndexes, conflict.layers)),
+    )
+
+  const candidateZeroConflicts =
+    candidateConflicts ??
+    findClearanceConflicts(
+      candidateRoutes,
+      candidateRouteIndexes,
+      0,
+      geometryCache,
+    )
+
+  const currentConflictKeys = new Set(
+    currentZeroConflicts.map((conflict) =>
+      getConflictKey(conflict.routeIndexes, conflict.layers),
+    ),
   )
 
-  return findClearanceConflicts(
-    candidateRoutes,
-    candidateRouteIndexes,
-    0,
-    geometryCache,
-  ).filter((conflict) => {
+  return candidateZeroConflicts.filter((conflict) => {
     const conflictKey = getConflictKey(conflict.routeIndexes, conflict.layers)
     if (currentConflictKeys.has(conflictKey)) return false
 
