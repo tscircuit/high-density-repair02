@@ -1,0 +1,47 @@
+name: Benchmark Instructions
+
+on:
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  post-instructions:
+    name: Post benchmark instructions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment benchmark usage
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.TSCIRCUIT_BOT_GITHUB_TOKEN }}
+          script: |
+            const body = [
+              "## 🏃 Benchmark This PR",
+              "",
+              "Run benchmarks by commenting on this PR:",
+              "",
+              "```",
+              "/benchmark [benchmark.sh args...]",
+              "/benchmark [scenario-limit] --concurrency <n> --margin <n> --progress-interval <ms>",
+              "```",
+              "",
+              "Everything after `/benchmark` is forwarded directly to `./benchmark.sh`.",
+              "",
+              "Examples:",
+              "- `/benchmark` -> run default benchmark settings",
+              "- `/benchmark 200` -> run first 200 scenarios",
+              "- `/benchmark --scenario-limit 200 --concurrency 4` -> run 200 scenarios with 4 workers",
+              "- `/benchmark --scenario-limit 100 --margin 0.4 --progress-interval 250` -> run with custom margin and progress interval",
+              "",
+              "Any PR whose title contains `[BENCHMARK TEST]` will automatically run the benchmark workflow on PR updates.",
+            ].join("\\n")
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            })
