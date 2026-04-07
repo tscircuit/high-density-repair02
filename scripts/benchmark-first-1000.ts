@@ -199,9 +199,9 @@ const runMain = async () => {
   const limit = parseNumberArg("--limit", 1000)
   const margin = parseNumberArg("--margin", 0.4)
   const progressIntervalMs = parseNumberArg("--progress-interval", 200)
+  const concurrency = Math.floor(parseNumberArg("--concurrency", 1))
 
   const samplePaths = getDatasetSamplePaths().slice(0, limit)
-  const concurrency = 1
 
   if (samplePaths.length === 0) {
     throw new Error("No dataset samples found")
