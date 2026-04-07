@@ -1,7 +1,6 @@
 export const TOP_LAYER_COLOR = "#FF0000"
 export const BOTTOM_LAYER_COLOR = "#0000FF"
 export const DEFAULT_TRACE_THICKNESS = 0.15
-export const GRID_COLOR = "rgba(15, 23, 42, 0.14)"
 export const HIGHLIGHT_COLOR = "rgba(245, 158, 11, 0.16)"
 export const ACCEPT_COLOR = "rgba(16, 185, 129, 0.14)"
 export const REJECT_COLOR = "rgba(220, 38, 38, 0.14)"

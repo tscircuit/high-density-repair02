@@ -27,7 +27,6 @@ export const buildRepairFrames = (
       baseRoutes,
       repairedRoutes,
       margin,
-      gridStep: Math.max(margin / 2, 0.05),
       frames: [
         {
           title: "HighDensityRepair02 Missing Boundary",
@@ -37,16 +36,8 @@ export const buildRepairFrames = (
     }
   }
 
-  const gridStep = Math.max(margin / 2, 0.05)
   const frames: VisualizationFrame[] = captureProgressFrames
-    ? [
-        createInitialFrame(
-          cloneRoutes(repairedRoutes),
-          boundary,
-          margin,
-          gridStep,
-        ),
-      ]
+    ? [createInitialFrame(cloneRoutes(repairedRoutes), margin)]
     : []
   const lockedTwoPointRoutes = new Set<number>()
   const geometryCache: RouteGeometryCache = new WeakMap()
@@ -57,7 +48,6 @@ export const buildRepairFrames = (
       sample,
       boundary,
       margin,
-      gridStep,
       repairedRoutes,
       frames,
       captureProgressFrames,
@@ -70,9 +60,7 @@ export const buildRepairFrames = (
     createFinalFrame(
       cloneRoutes(repairedRoutes),
       cloneRoutes(baseRoutes),
-      boundary,
       margin,
-      gridStep,
     ),
   )
 
@@ -82,6 +70,5 @@ export const buildRepairFrames = (
     repairedRoutes,
     frames,
     margin,
-    gridStep,
   }
 }

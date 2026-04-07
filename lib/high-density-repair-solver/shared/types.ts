@@ -119,7 +119,6 @@ export type BuildRepairFramesResult = {
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
   margin: number
-  gridStep: number
 }
 
 export type EvaluateRouteMoveResult = {

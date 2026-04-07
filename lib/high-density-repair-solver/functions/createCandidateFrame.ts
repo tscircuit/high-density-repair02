@@ -5,7 +5,6 @@ import type {
   HdRoute,
   VisualizationFrame,
 } from "../shared/types"
-import { createBoundaryGridLines } from "./createBoundaryGridLines"
 import { createOverlayLinesForRoutes } from "./createOverlayLinesForRoutes"
 import { createSideStripRect } from "./createSideStripRect"
 
@@ -17,7 +16,6 @@ export const createCandidateFrame = ({
   boundary,
   side,
   margin,
-  gridStep,
   rejected,
   rejectionReason,
 }: {
@@ -28,7 +26,6 @@ export const createCandidateFrame = ({
   boundary: BoundaryRect
   side: BoundarySide
   margin: number
-  gridStep: number
   rejected: boolean
   rejectionReason: string
 }): VisualizationFrame => {
@@ -44,12 +41,9 @@ export const createCandidateFrame = ({
     originalRoutes,
     activeSide: side,
     candidateRouteNames: routeNames,
-    overlayLines: [
-      ...createBoundaryGridLines(boundary, gridStep, side),
-      ...(rejected
-        ? createOverlayLinesForRoutes(candidateRoutes, candidateRouteIndexes)
-        : []),
-    ],
+    overlayLines: rejected
+      ? createOverlayLinesForRoutes(candidateRoutes, candidateRouteIndexes)
+      : [],
     overlayRects: [
       createSideStripRect(
         boundary,

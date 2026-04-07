@@ -18,7 +18,6 @@ export const processBoundarySide = ({
   sample,
   boundary,
   margin,
-  gridStep,
   repairedRoutes,
   frames,
   captureProgressFrames,
@@ -29,7 +28,6 @@ export const processBoundarySide = ({
   sample: DatasetSample | undefined
   boundary: BoundaryRect
   margin: number
-  gridStep: number
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
   captureProgressFrames: boolean
@@ -52,7 +50,6 @@ export const processBoundarySide = ({
         margin,
         moveAmount,
         hasObstacle,
-        gridStep,
       ),
     )
   }
@@ -77,7 +74,6 @@ export const processBoundarySide = ({
       side,
       boundary,
       margin,
-      gridStep,
       moveAmount,
       geometryCache,
     })
@@ -97,7 +93,6 @@ export const processBoundarySide = ({
           boundary,
           side,
           margin,
-          gridStep,
           rejected: evaluation.rejected,
           rejectionReason: evaluation.rejectionReason,
         }),

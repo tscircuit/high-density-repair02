@@ -24,7 +24,6 @@ export const evaluateRouteMove = ({
   side,
   boundary,
   margin,
-  gridStep,
   moveAmount,
   geometryCache,
 }: {
@@ -33,7 +32,6 @@ export const evaluateRouteMove = ({
   side: BoundarySide
   boundary: BoundaryRect
   margin: number
-  gridStep: number
   moveAmount: number
   geometryCache: RouteGeometryCache
 }): EvaluateRouteMoveResult | null => {
@@ -104,12 +102,9 @@ export const evaluateRouteMove = ({
       activeRoute,
       activeMovableIndexes,
       boundary,
-      gridStep,
       side,
       moveAmount,
       margin,
-      candidateRoutes,
-      activeRouteIndex,
       targetAxisValue,
       activeRouteIndex !== routeIndex,
     )

@@ -97,12 +97,9 @@ export const createMovedRoute = (
   route: HdRoute,
   movableIndexes: number[],
   boundary: BoundaryRect,
-  gridStep: number,
   side: BoundarySide,
   moveAmount: number,
   margin: number,
-  surroundingRoutes?: HdRoute[],
-  activeRouteIndex?: number,
   targetAxisValue?: number,
   translateOnly = false,
 ): HdRoute => {

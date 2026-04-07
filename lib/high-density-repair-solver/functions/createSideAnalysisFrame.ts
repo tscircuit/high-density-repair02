@@ -5,7 +5,6 @@ import type {
   HdRoute,
   VisualizationFrame,
 } from "../shared/types"
-import { createBoundaryGridLines } from "./createBoundaryGridLines"
 import { createSideStripRect } from "./createSideStripRect"
 
 export const createSideAnalysisFrame = (
@@ -15,12 +14,10 @@ export const createSideAnalysisFrame = (
   margin: number,
   moveAmount: number,
   hasObstacle: boolean,
-  gridStep: number,
 ): VisualizationFrame => ({
   title: `${side} boundary analysis: move=${moveAmount.toFixed(3)} (${hasObstacle ? "obstacle-side" : "clear-side"})`,
   routes,
   activeSide: side,
-  overlayLines: createBoundaryGridLines(boundary, gridStep, side),
   overlayRects: [
     createSideStripRect(
       boundary,
