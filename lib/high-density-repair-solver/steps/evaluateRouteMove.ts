@@ -241,13 +241,18 @@ export const evaluateRouteMove = ({
     }
   }
 
-  if (
-    !rejected &&
-    candidateRouteIndexes.size > 1 &&
-    getCandidateZeroConflicts().length > 0
-  ) {
-    rejected = true
-    rejectionReason = "eventual-overlap"
+  if (!rejected && candidateRouteIndexes.size > 1) {
+    const currentZeroConflictKeys = getConflictKeys(getCurrentZeroConflicts())
+    const candidateZeroConflictKeys = getConflictKeys(
+      getCandidateZeroConflicts(),
+    )
+
+    for (const conflictKey of candidateZeroConflictKeys) {
+      if (currentZeroConflictKeys.has(conflictKey)) continue
+      rejected = true
+      rejectionReason = "eventual-overlap"
+      break
+    }
   }
 
   if (!rejected) {
