@@ -345,16 +345,47 @@ jobs:
                 sampleCount: report.sampleCount - baseline.sampleCount,
                 succeeded: report.succeeded - baseline.succeeded,
                 failed: report.failed - baseline.failed,
+                totalTraceCount: report.totalTraceCount - baseline.totalTraceCount,
+                totalIterations: report.totalIterations - baseline.totalIterations,
+                totalSolveTimeMs: report.totalSolveTimeMs - baseline.totalSolveTimeMs,
                 averageSolveTimeMs: report.averageSolveTimeMs - baseline.averageSolveTimeMs,
                 boundaryRepairedPercent: report.boundaryRepairedPercent - baseline.boundaryRepairedPercent,
                 bufferRepairedPercent: report.bufferRepairedPercent - baseline.bufferRepairedPercent,
               }
             }
-            const renderSummaryTable = (report, baseline = null) => {
+            const renderSummaryTable = (report, options = {}) => {
               if (!report) return ['Summary table unavailable.']
+              const includeDelta = Boolean(options.includeDelta)
+              const baseline = options.baseline ?? null
               const delta = buildDeltaMap(report, baseline)
               const boundaryLabel = `${report.boundaryRepairedCount}/${report.succeeded} (${Number(report.boundaryRepairedPercent ?? 0).toFixed(2)}%)`
               const bufferLabel = `${report.bufferRepairedCount}/${report.succeeded} (${Number(report.bufferRepairedPercent ?? 0).toFixed(2)}%)`
+              const mainTable = [
+                '| Metric | Value |',
+                '| --- | --- |',
+                `| Samples | ${report.sampleCount} |`,
+                `| Succeeded | ${report.succeeded} |`,
+                `| Failed | ${report.failed} |`,
+                `| Total traces | ${report.totalTraceCount} |`,
+                `| Total iterations | ${report.totalIterations} |`,
+                `| Total solve time | ${formatDuration(report.totalSolveTimeMs)} |`,
+                `| Average solve time | ${formatDuration(report.averageSolveTimeMs)} |`,
+                `| Boundary repaired % | ${boundaryLabel} |`,
+                `| Buffer repaired % | ${bufferLabel} |`,
+              ]
+              const prTable = [
+                '| Metric | Value | Delta vs Main |',
+                '| --- | --- | --- |',
+                `| Samples | ${report.sampleCount} | ${delta ? formatSignedInteger(delta.sampleCount) : 'n/a'} |`,
+                `| Succeeded | ${report.succeeded} | ${delta ? formatSignedInteger(delta.succeeded) : 'n/a'} |`,
+                `| Failed | ${report.failed} | ${delta ? formatSignedInteger(delta.failed) : 'n/a'} |`,
+                `| Total traces | ${report.totalTraceCount} | ${delta ? formatSignedInteger(delta.totalTraceCount) : 'n/a'} |`,
+                `| Total iterations | ${report.totalIterations} | ${delta ? formatSignedInteger(delta.totalIterations) : 'n/a'} |`,
+                `| Total solve time | ${formatDuration(report.totalSolveTimeMs)} | ${delta ? formatSignedDuration(delta.totalSolveTimeMs) : 'n/a'} |`,
+                `| Average solve time | ${formatDuration(report.averageSolveTimeMs)} | ${delta ? formatSignedDuration(delta.averageSolveTimeMs) : 'n/a'} |`,
+                `| Boundary repaired % | ${boundaryLabel} | ${delta ? formatSignedPercentPoints(delta.boundaryRepairedPercent) : 'n/a'} |`,
+                `| Buffer repaired % | ${bufferLabel} | ${delta ? formatSignedPercentPoints(delta.bufferRepairedPercent) : 'n/a'} |`,
+              ]
               return [
                 ...(report.metadata
                   ? [
@@ -364,14 +395,7 @@ jobs:
                       '',
                     ]
                   : []),
-                '| Metric | Value | Delta vs Main |',
-                '| --- | --- | --- |',
-                `| Samples | ${report.sampleCount} | ${delta ? formatSignedInteger(delta.sampleCount) : 'n/a'} |`,
-                `| Succeeded | ${report.succeeded} | ${delta ? formatSignedInteger(delta.succeeded) : 'n/a'} |`,
-                `| Failed | ${report.failed} | ${delta ? formatSignedInteger(delta.failed) : 'n/a'} |`,
-                `| Avg solve time | ${formatDuration(report.averageSolveTimeMs)} | ${delta ? formatSignedDuration(delta.averageSolveTimeMs) : 'n/a'} |`,
-                `| Boundary repaired % | ${boundaryLabel} | ${delta ? formatSignedPercentPoints(delta.boundaryRepairedPercent) : 'n/a'} |`,
-                `| Buffer repaired % | ${bufferLabel} | ${delta ? formatSignedPercentPoints(delta.bufferRepairedPercent) : 'n/a'} |`,
+                ...(includeDelta ? prTable : mainTable),
               ]
             }
 
@@ -395,7 +419,7 @@ jobs:
               '<details>',
               '<summary>📊 Main Branch Results</summary>',
               '',
-              ...renderSummaryTable(mainReport),
+              ...renderSummaryTable(mainReport, { includeDelta: false }),
               '',
               '<details>',
               '<summary>Raw output</summary>',
@@ -409,7 +433,7 @@ jobs:
               '<details open>',
               '<summary>📊 PR Results</summary>',
               '',
-              ...renderSummaryTable(prReport, mainReport),
+              ...renderSummaryTable(prReport, { includeDelta: true, baseline: mainReport }),
               '',
               '<details>',
               '<summary>Raw output</summary>',
