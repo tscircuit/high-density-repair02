@@ -16,6 +16,7 @@ import { getBoundaryRect } from "../lib/high-density-repair-solver/functions/get
 // Run with: bun run benchmark:first-1000
 
 type WorkerInput = {
+  dataset: DatasetName
   sampleName: string
   samplePath: string
   margin: number
@@ -24,6 +25,7 @@ type WorkerInput = {
 
 type WorkerProgressMessage = {
   type: "progress"
+  dataset: DatasetName
   sampleName: string
   iterations: number
   elapsedMs: number
@@ -31,6 +33,7 @@ type WorkerProgressMessage = {
 
 type WorkerDoneMessage = {
   type: "done"
+  dataset: DatasetName
   sampleName: string
   iterations: number
   elapsedMs: number
@@ -44,6 +47,7 @@ type WorkerDoneMessage = {
 
 type WorkerErrorMessage = {
   type: "error"
+  dataset: DatasetName
   sampleName: string
   iterations: number
   elapsedMs: number
@@ -56,6 +60,7 @@ type WorkerMessage =
   | WorkerErrorMessage
 
 type SampleResult = {
+  dataset: DatasetName
   sampleName: string
   iterations: number
   elapsedMs: number
@@ -81,11 +86,13 @@ type BenchmarkReport = {
   bufferRepairedCount: number
   bufferRepairedPercent: number
   metadata: {
+    datasets: DatasetName[]
     margin: number
     concurrency: number
     scenarioLimitUsed: number
   }
   sampleResults: Array<{
+    dataset: DatasetName
     sampleName: string
     iterations: number
     elapsedMs: number
@@ -99,8 +106,17 @@ type BenchmarkReport = {
 }
 
 type RunningSampleState = {
+  dataset: DatasetName
   sampleName: string
   workerId: number
+}
+
+type DatasetName = "dataset01" | "dataset02"
+
+type SamplePathEntry = {
+  dataset: DatasetName
+  sampleName: string
+  samplePath: string
 }
 
 const formatMs = (ms: number) => `${ms.toFixed(2)}ms`
@@ -114,12 +130,14 @@ const toPercent = (part: number, total: number) =>
 const buildBenchmarkReport = ({
   results,
   totalIterations,
+  datasets,
   margin,
   concurrency,
   scenarioLimitUsed,
 }: {
   results: SampleResult[]
   totalIterations: number
+  datasets: DatasetName[]
   margin: number
   concurrency: number
   scenarioLimitUsed: number
@@ -156,11 +174,13 @@ const buildBenchmarkReport = ({
     bufferRepairedCount,
     bufferRepairedPercent: toPercent(bufferRepairedCount, succeeded),
     metadata: {
+      datasets,
       margin,
       concurrency,
       scenarioLimitUsed,
     },
     sampleResults: results.map((result) => ({
+      dataset: result.dataset,
       sampleName: result.sampleName,
       iterations: result.iterations,
       elapsedMs: result.elapsedMs,
@@ -255,7 +275,85 @@ const parseNumberArg = (flag: string, fallback: number) => {
   return value
 }
 
-const getDatasetSamplePaths = () => {
+const parseScenarioLimitArg = (
+  flags: string[],
+): { mode: "limited"; limit: number } | { mode: "all" } => {
+  let index = -1
+  for (const flag of flags) {
+    const candidateIndex = Bun.argv.indexOf(flag)
+    if (candidateIndex !== -1) {
+      index = candidateIndex
+    }
+  }
+
+  if (index === -1) {
+    return { mode: "limited", limit: 5000 }
+  }
+
+  const rawValue = Bun.argv[index + 1]
+  if (!rawValue) {
+    throw new Error(
+      `Invalid value for ${flags.join(" or ")}: <missing>`,
+    )
+  }
+
+  if (rawValue.toLowerCase() === "all") {
+    return { mode: "all" }
+  }
+
+  const value = Number(rawValue)
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `Invalid value for ${flags.join(" or ")}: ${rawValue ?? "<missing>"}`,
+    )
+  }
+
+  return { mode: "limited", limit: value }
+}
+
+const parseDatasetArg = (): DatasetName[] => {
+  const rawValues: string[] = []
+  for (let index = 0; index < Bun.argv.length; index += 1) {
+    if (Bun.argv[index] === "--dataset") {
+      const value = Bun.argv[index + 1]
+      if (!value) {
+        throw new Error("Missing value for --dataset")
+      }
+      rawValues.push(value)
+    }
+  }
+
+  if (rawValues.length === 0) {
+    return ["dataset01", "dataset02"]
+  }
+
+  const parsed = rawValues
+    .flatMap((value) => value.split(/[,\s/]+/))
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => value.toLowerCase())
+    .flatMap((value) =>
+      value === "all" ? ["dataset01", "dataset02"] : [value],
+    )
+
+  const datasets: DatasetName[] = []
+  for (const dataset of parsed) {
+    if (dataset !== "dataset01" && dataset !== "dataset02") {
+      throw new Error(`Invalid dataset: ${dataset}`)
+    }
+    if (!datasets.includes(dataset)) {
+      datasets.push(dataset)
+    }
+  }
+
+  if (datasets.length === 0) {
+    throw new Error("At least one dataset must be selected")
+  }
+
+  return datasets
+}
+
+const getDataset01SamplePaths = (): SamplePathEntry[] => {
   const currentDir = dirname(fileURLToPath(import.meta.url))
   const datasetDir = join(currentDir, "../node_modules/dataset-hd08/samples")
 
@@ -263,13 +361,41 @@ const getDatasetSamplePaths = () => {
     .filter((entry) => /^sample\d+\.json$/.test(entry))
     .sort((a, b) => a.localeCompare(b))
     .map((entry) => ({
+      dataset: "dataset01" as const,
       sampleName: entry.replace(/\.json$/, ""),
       samplePath: join(datasetDir, entry),
     }))
 }
 
+const getDataset02SamplePaths = (): SamplePathEntry[] => {
+  const currentDir = dirname(fileURLToPath(import.meta.url))
+  const datasetDirs = [
+    join(currentDir, "../tests/assets"),
+    join(currentDir, "../tests/repros/assets"),
+  ]
+  const fileRegex = /(circuit|bugreport|repro|repair-input)/i
+
+  return datasetDirs.flatMap((datasetDir) =>
+    readdirSync(datasetDir)
+      .filter((entry) => entry.endsWith(".json") && fileRegex.test(entry))
+      .sort((a, b) => a.localeCompare(b))
+      .map((entry) => ({
+        dataset: "dataset02" as const,
+        sampleName: entry.replace(/\.json$/, ""),
+        samplePath: join(datasetDir, entry),
+      })),
+  )
+}
+
+const getSelectedSamplePaths = (datasets: DatasetName[]) =>
+  datasets.flatMap((dataset) =>
+    dataset === "dataset01"
+      ? getDataset01SamplePaths()
+      : getDataset02SamplePaths(),
+  )
+
 const runWorker = async () => {
-  const { sampleName, samplePath, margin, progressIntervalMs } =
+  const { dataset, sampleName, samplePath, margin, progressIntervalMs } =
     workerData as WorkerInput
 
   const sample = (await Bun.file(samplePath).json()) as DatasetSample
@@ -292,6 +418,7 @@ const runWorker = async () => {
       ) {
         parentPort?.postMessage({
           type: "progress",
+          dataset,
           sampleName,
           iterations: solver.iterations,
           elapsedMs: now - startedAt,
@@ -306,6 +433,7 @@ const runWorker = async () => {
     if (solver.failed) {
       parentPort?.postMessage({
         type: "error",
+        dataset,
         sampleName,
         iterations: solver.iterations,
         elapsedMs,
@@ -337,6 +465,7 @@ const runWorker = async () => {
 
     parentPort?.postMessage({
       type: "done",
+      dataset,
       sampleName,
       iterations: solver.iterations,
       elapsedMs,
@@ -350,6 +479,7 @@ const runWorker = async () => {
   } catch (error) {
     parentPort?.postMessage({
       type: "error",
+      dataset,
       sampleName,
       iterations: solver.iterations,
       elapsedMs: performance.now() - startedAt,
@@ -359,12 +489,17 @@ const runWorker = async () => {
 }
 
 const runMain = async () => {
-  const limit = parseNumberArg("--limit", 1000)
+  const scenarioLimit = parseScenarioLimitArg(["--limit", "--scenario-limit"])
+  const datasets = parseDatasetArg()
   const margin = parseNumberArg("--margin", 0.4)
   const progressIntervalMs = parseNumberArg("--progress-interval", 200)
   const concurrency = Math.floor(parseNumberArg("--concurrency", 1))
 
-  const samplePaths = getDatasetSamplePaths().slice(0, limit)
+  const selectedSamplePaths = getSelectedSamplePaths(datasets)
+  const samplePaths =
+    scenarioLimit.mode === "limited"
+      ? selectedSamplePaths.slice(0, scenarioLimit.limit)
+      : selectedSamplePaths
 
   if (samplePaths.length === 0) {
     throw new Error("No dataset samples found")
@@ -382,12 +517,14 @@ const runMain = async () => {
     const sampleInfo = samplePaths[nextIndex++]
     const startedAt = performance.now()
     runningSamples.set(workerId, {
+      dataset: sampleInfo.dataset,
       sampleName: sampleInfo.sampleName,
       workerId,
     })
 
     const worker = new Worker(new URL(import.meta.url), {
       workerData: {
+        dataset: sampleInfo.dataset,
         sampleName: sampleInfo.sampleName,
         samplePath: sampleInfo.samplePath,
         margin,
@@ -409,6 +546,7 @@ const runMain = async () => {
 
       if (message.type === "done") {
         results.push({
+          dataset: message.dataset,
           sampleName: message.sampleName,
           iterations: message.iterations,
           elapsedMs: message.elapsedMs,
@@ -430,11 +568,12 @@ const runMain = async () => {
           ].filter(Boolean)
 
           console.log(
-            `[sample-hit] ${message.sampleName} worker=${workerId} iterations=${message.iterations} frames=${message.frameCount} traces=${message.totalTraceCount} ${hitParts.join(" ")} time=${formatMs(message.elapsedMs)}`,
+            `[sample-hit] ${message.dataset}/${message.sampleName} worker=${workerId} iterations=${message.iterations} frames=${message.frameCount} traces=${message.totalTraceCount} ${hitParts.join(" ")} time=${formatMs(message.elapsedMs)}`,
           )
         }
       } else {
         results.push({
+          dataset: message.dataset,
           sampleName: message.sampleName,
           iterations: message.iterations,
           elapsedMs: message.elapsedMs,
@@ -447,7 +586,7 @@ const runMain = async () => {
           error: message.error,
         })
         console.log(
-          `[sample-error] ${message.sampleName} worker=${workerId} iterations=${message.iterations} time=${formatMs(message.elapsedMs)} error=${message.error}`,
+          `[sample-error] ${message.dataset}/${message.sampleName} worker=${workerId} iterations=${message.iterations} time=${formatMs(message.elapsedMs)} error=${message.error}`,
         )
       }
 
@@ -457,6 +596,7 @@ const runMain = async () => {
         const report = buildBenchmarkReport({
           results,
           totalIterations,
+          datasets,
           margin,
           concurrency,
           scenarioLimitUsed: samplePaths.length,
@@ -478,6 +618,7 @@ const runMain = async () => {
         `[worker-error] ${sampleInfo.sampleName} worker=${workerId} error=${errorMessage}`,
       )
       results.push({
+        dataset: sampleInfo.dataset,
         sampleName: sampleInfo.sampleName,
         iterations: 0,
         elapsedMs: performance.now() - startedAt,
@@ -494,6 +635,7 @@ const runMain = async () => {
         const report = buildBenchmarkReport({
           results,
           totalIterations,
+          datasets,
           margin,
           concurrency,
           scenarioLimitUsed: samplePaths.length,
@@ -509,7 +651,7 @@ const runMain = async () => {
   }
 
   console.log(
-    `Starting benchmark: samples=${samplePaths.length} workers=${concurrency} margin=${margin} progressInterval=${progressIntervalMs}ms`,
+    `Starting benchmark: datasets=${datasets.join(",")} samples=${samplePaths.length} workers=${concurrency} margin=${margin} progressInterval=${progressIntervalMs}ms`,
   )
 
   for (let workerId = 1; workerId <= concurrency; workerId += 1) {

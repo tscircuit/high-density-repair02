@@ -18,7 +18,7 @@ bun run start
 ```
 
 - `bun run start`: open interactive Cosmos debugger.
-- `./benchmark.sh`: run benchmark on dataset samples (default first 1000).
+- `./benchmark.sh`: run benchmark on dataset samples (default first 5000 combined samples from `dataset01` + `dataset02`).
 
 ## Quick Usage
 
@@ -64,6 +64,11 @@ bun install
 - Main export: `HighDensityRepairSolver` from `lib/index.ts`
 - Tests are visual snapshots in `tests/`
 - Benchmark script options: `./benchmark.sh --help`
+- Benchmark datasets:
+  - `dataset01`: `sample*.json` from `node_modules/dataset-hd08/samples`
+  - `dataset02`: circuit/bugreport/repro JSON inputs from `tests/assets` and `tests/repros/assets`
+  - Selection: `./benchmark.sh --dataset dataset01` or `./benchmark.sh --dataset dataset02` (default is all)
+  - Scenario limit: default `5000`; set `--scenario-limit all` to run all combined scenarios
 
 ## License
 

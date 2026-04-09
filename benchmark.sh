@@ -5,27 +5,32 @@ SCENARIO_LIMIT=""
 CONCURRENCY=""
 MARGIN=""
 PROGRESS_INTERVAL=""
+DATASET=""
 
 print_help() {
   cat <<'EOH'
 Usage:
-  ./benchmark.sh [scenario-limit] [--concurrency N] [--margin N] [--progress-interval MS]
-  ./benchmark.sh [--scenario-limit N] [--concurrency N] [--margin N] [--progress-interval MS]
+  ./benchmark.sh [scenario-limit|all] [--dataset dataset01|dataset02] [--concurrency N] [--margin N] [--progress-interval MS]
+  ./benchmark.sh [--scenario-limit N|all] [--dataset dataset01|dataset02] [--concurrency N] [--margin N] [--progress-interval MS]
 
 Options:
-  --scenario-limit N    Run only first N samples
+  --scenario-limit N|all Run first N samples, or all combined samples
+  --dataset NAME        dataset01, dataset02, or all (default: all)
   --concurrency N       Number of workers
   --margin N            Boundary buffer margin in mm (default from TS script: 0.4)
   --progress-interval N Worker progress interval in ms (default from TS script: 200)
   -h, --help            Show this help
 
 Defaults:
-  Running ./benchmark.sh with no parameters benchmarks first 1000 samples.
+  Running ./benchmark.sh with no parameters benchmarks first 5000 combined samples from dataset01 + dataset02.
 
 Examples:
   ./benchmark.sh
+  ./benchmark.sh --scenario-limit all
+  ./benchmark.sh --dataset dataset01
+  ./benchmark.sh --dataset dataset02
   ./benchmark.sh 200
-  ./benchmark.sh --scenario-limit 200 --concurrency 4
+  ./benchmark.sh --scenario-limit 200 --dataset dataset01 --concurrency 4
   ./benchmark.sh 100 --margin 0.4 --progress-interval 250
 EOH
 }
@@ -47,6 +52,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --concurrency)
       CONCURRENCY="${2:-}"
+      shift 2
+      ;;
+    --dataset)
+      DATASET="${2:-}"
       shift 2
       ;;
     --margin)
@@ -73,6 +82,10 @@ fi
 
 if [ -n "${CONCURRENCY}" ]; then
   CMD+=("--concurrency" "${CONCURRENCY}")
+fi
+
+if [ -n "${DATASET}" ]; then
+  CMD+=("--dataset" "${DATASET}")
 fi
 
 if [ -n "${MARGIN}" ]; then

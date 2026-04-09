@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       scenario_limit:
-        description: Number of scenarios to run (optional)
+        description: Scenario limit (number or "all"). Default: 5000.
         required: false
         type: string
       concurrency:
