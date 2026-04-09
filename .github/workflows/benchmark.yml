@@ -14,6 +14,10 @@ on:
         description: Scenario limit (number or "all"). Default: 5000.
         required: false
         type: string
+      dataset:
+        description: Dataset selection (dataset01, dataset02, or all). Default: all.
+        required: false
+        type: string
       concurrency:
         description: Number of workers (optional)
         required: false
@@ -183,12 +187,16 @@ jobs:
               const inputs = context.payload.inputs || {}
 
               const scenarioLimit = (inputs.scenario_limit || '').trim()
+              const dataset = (inputs.dataset || '').trim()
               const concurrency = (inputs.concurrency || '').trim()
               const margin = (inputs.margin || '').trim()
               const progressInterval = (inputs.progress_interval || '').trim()
 
               if (scenarioLimit) {
                 benchmarkArgs.push('--scenario-limit', scenarioLimit)
+              }
+              if (dataset) {
+                benchmarkArgs.push('--dataset', dataset)
               }
               if (concurrency) {
                 benchmarkArgs.push('--concurrency', concurrency)

@@ -1,7 +1,7 @@
 import type { DatasetSample } from "../lib/high-density-repair-solver"
 
 const datasetModules = import.meta.glob<DatasetSample>(
-  "../node_modules/dataset-hd08/samples/*.json",
+  "../datasets/dataset01/*.json",
 )
 
 const sampleEntries = Object.entries(datasetModules)

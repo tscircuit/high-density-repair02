@@ -65,8 +65,8 @@ bun install
 - Tests are visual snapshots in `tests/`
 - Benchmark script options: `./benchmark.sh --help`
 - Benchmark datasets:
-  - `dataset01`: `sample*.json` from `node_modules/dataset-hd08/samples`
-  - `dataset02`: circuit/bugreport/repro JSON inputs from `tests/assets` and `tests/repros/assets`
+  - `dataset01`: `sample*.json` from `datasets/dataset01` (symlink to `node_modules/dataset-hd08/samples`)
+  - `dataset02`: circuit/bugreport/repro JSON inputs from `datasets/dataset02`
   - Selection: `./benchmark.sh --dataset dataset01` or `./benchmark.sh --dataset dataset02` (default is all)
   - Scenario limit: default `5000`; set `--scenario-limit all` to run all combined scenarios
 

@@ -353,7 +353,7 @@ const parseDatasetArg = (): DatasetName[] => {
 
 const getDataset01SamplePaths = (): SamplePathEntry[] => {
   const currentDir = dirname(fileURLToPath(import.meta.url))
-  const datasetDir = join(currentDir, "../node_modules/dataset-hd08/samples")
+  const datasetDir = join(currentDir, "../datasets/dataset01")
 
   return readdirSync(datasetDir)
     .filter((entry) => /^sample\d+\.json$/.test(entry))
@@ -367,22 +367,17 @@ const getDataset01SamplePaths = (): SamplePathEntry[] => {
 
 const getDataset02SamplePaths = (): SamplePathEntry[] => {
   const currentDir = dirname(fileURLToPath(import.meta.url))
-  const datasetDirs = [
-    join(currentDir, "../tests/assets"),
-    join(currentDir, "../tests/repros/assets"),
-  ]
+  const datasetDir = join(currentDir, "../datasets/dataset02")
   const fileRegex = /(circuit|bugreport|repro|repair-input)/i
 
-  return datasetDirs.flatMap((datasetDir) =>
-    readdirSync(datasetDir)
-      .filter((entry) => entry.endsWith(".json") && fileRegex.test(entry))
-      .sort((a, b) => a.localeCompare(b))
-      .map((entry) => ({
-        dataset: "dataset02" as const,
-        sampleName: entry.replace(/\.json$/, ""),
-        samplePath: join(datasetDir, entry),
-      })),
-  )
+  return readdirSync(datasetDir)
+    .filter((entry) => entry.endsWith(".json") && fileRegex.test(entry))
+    .sort((a, b) => a.localeCompare(b))
+    .map((entry) => ({
+      dataset: "dataset02" as const,
+      sampleName: entry.replace(/\.json$/, ""),
+      samplePath: join(datasetDir, entry),
+    }))
 }
 
 const getSelectedSamplePaths = (datasets: DatasetName[]) =>

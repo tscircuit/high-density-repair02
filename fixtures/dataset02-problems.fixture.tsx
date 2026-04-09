@@ -15,8 +15,7 @@ type AssetProblem = {
 }
 
 const assetModules = {
-  ...import.meta.glob<AssetSolverInput>("../tests/assets/*.json"),
-  ...import.meta.glob<AssetSolverInput>("../tests/repros/assets/*.json"),
+  ...import.meta.glob<AssetSolverInput>("../datasets/dataset02/*.json"),
 }
 
 const isRelevantCaseName = (caseName: string) =>

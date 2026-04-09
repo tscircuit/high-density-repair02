@@ -4,7 +4,7 @@ import { renderInitialStateFromAsset } from "./fixtures/visualize-solver"
 
 test("visual snapshot: 17-circuit180-cmn_2 repair input", async () => {
   const graphics = await renderInitialStateFromAsset(
-    "../assets/17-circuit180-cmn_2-repair-input.json",
+    "../../datasets/dataset02/17-circuit180-cmn_2-repair-input.json",
   )
   await expect(graphics).toMatchGraphicsSvg(import.meta.path)
 })

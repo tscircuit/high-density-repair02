@@ -34,6 +34,8 @@ jobs:
               "- `/benchmark` -> run default benchmark settings (first 5000 combined scenarios)",
               "- `/benchmark 200` -> run first 200 scenarios",
               "- `/benchmark all` -> run all combined scenarios",
+              "- `/benchmark --dataset dataset01` -> run only dataset01",
+              "- `/benchmark --dataset dataset02 --scenario-limit all` -> run all scenarios from dataset02",
               "- `/benchmark --scenario-limit 200 --concurrency 4` -> run 200 scenarios with 4 workers",
               "- `/benchmark --scenario-limit all --concurrency 4` -> run all scenarios with 4 workers",
               "- `/benchmark --scenario-limit 100 --margin 0.4 --progress-interval 250` -> run with custom margin and progress interval",

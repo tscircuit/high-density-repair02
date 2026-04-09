@@ -10,7 +10,7 @@ test("visual snapshot: sample0809 initial state", async () => {
 
 test("sample0809 keeps vias aligned with layer transitions after repair", async () => {
   const samplePath = new URL(
-    "../node_modules/dataset-hd08/samples/sample0809.json",
+    "../datasets/dataset01/sample0809.json",
     import.meta.url,
   )
   const sample = await Bun.file(samplePath).json()

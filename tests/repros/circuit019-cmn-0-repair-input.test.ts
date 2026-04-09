@@ -5,7 +5,10 @@ import { HighDensityRepairSolver } from "../../lib/high-density-repair-solver"
 
 test("repro: circuit019 cmn_0 repair input at margin 0.1", async () => {
   const input = (await Bun.file(
-    new URL("./assets/circuit019-cmn_0-repair-input.json", import.meta.url),
+    new URL(
+      "../../datasets/dataset02/circuit019-cmn_0-repair-input.json",
+      import.meta.url,
+    ),
   ).json()) as { margin?: number; sample?: DatasetSample }
 
   const solver = new HighDensityRepairSolver({
