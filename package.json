@@ -15,7 +15,6 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "benchmark:datasets": "bun scripts/benchmark-datasets.ts",
-    "benchmark:first-1000": "bun scripts/benchmark-datasets.ts",
     "start": "cosmos",
     "build:site": "cosmos-export"
   },
