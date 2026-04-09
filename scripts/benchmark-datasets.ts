@@ -39,8 +39,8 @@ type WorkerDoneMessage = {
   elapsedMs: number
   frameCount: number
   totalTraceCount: number
-  boundaryHitCount: number
-  boundaryHitTraceCount: number
+  boundryViolationCount: number
+  boundryViolationTraceCount: number
   bufferHitCount: number
   bufferHitTraceCount: number
 }
@@ -66,8 +66,8 @@ type SampleResult = {
   elapsedMs: number
   frameCount: number
   totalTraceCount: number
-  boundaryHitCount: number
-  boundaryHitTraceCount: number
+  boundryViolationCount: number
+  boundryViolationTraceCount: number
   bufferHitCount: number
   bufferHitTraceCount: number
   error?: string
@@ -97,8 +97,8 @@ type BenchmarkReport = {
     iterations: number
     elapsedMs: number
     totalTraceCount: number
-    boundaryHitCount: number
-    boundaryHitTraceCount: number
+    boundryViolationCount: number
+    boundryViolationTraceCount: number
     bufferHitCount: number
     bufferHitTraceCount: number
     error?: string
@@ -154,7 +154,7 @@ const buildBenchmarkReport = ({
     0,
   )
   const boundaryRepairedCount = succeededResults.filter(
-    (result) => result.boundaryHitCount === 0,
+    (result) => result.boundryViolationCount === 0,
   ).length
   const bufferRepairedCount = succeededResults.filter(
     (result) => result.bufferHitCount === 0,
@@ -185,8 +185,8 @@ const buildBenchmarkReport = ({
       iterations: result.iterations,
       elapsedMs: result.elapsedMs,
       totalTraceCount: result.totalTraceCount,
-      boundaryHitCount: result.boundaryHitCount,
-      boundaryHitTraceCount: result.boundaryHitTraceCount,
+      boundryViolationCount: result.boundryViolationCount,
+      boundryViolationTraceCount: result.boundryViolationTraceCount,
       bufferHitCount: result.bufferHitCount,
       bufferHitTraceCount: result.bufferHitTraceCount,
       ...(result.error ? { error: result.error } : {}),
@@ -436,7 +436,7 @@ const runWorker = async () => {
     }
 
     const boundary = getBoundaryRect(sample.nodeWithPortPoints)
-    const boundaryHits = boundary
+    const boundryViolations = boundary
       ? findInteriorDiagonalSegmentsInBufferZone(
           solver.repairedRoutes,
           boundary,
@@ -450,8 +450,8 @@ const runWorker = async () => {
           margin,
         )
       : []
-    const boundaryHitTraceCount = new Set(
-      boundaryHits.map((hit) => hit.routeIndex),
+    const boundryViolationTraceCount = new Set(
+      boundryViolations.map((violation) => violation.routeIndex),
     ).size
     const bufferHitTraceCount = new Set(bufferHits.map((hit) => hit.routeIndex))
       .size
@@ -464,8 +464,8 @@ const runWorker = async () => {
       elapsedMs,
       frameCount: output?.frameCount ?? 0,
       totalTraceCount: solver.repairedRoutes.length,
-      boundaryHitCount: boundaryHits.length,
-      boundaryHitTraceCount,
+      boundryViolationCount: boundryViolations.length,
+      boundryViolationTraceCount,
       bufferHitCount: bufferHits.length,
       bufferHitTraceCount,
     } satisfies WorkerDoneMessage)
@@ -545,15 +545,15 @@ const runMain = async () => {
           elapsedMs: message.elapsedMs,
           frameCount: message.frameCount,
           totalTraceCount: message.totalTraceCount,
-          boundaryHitCount: message.boundaryHitCount,
-          boundaryHitTraceCount: message.boundaryHitTraceCount,
+          boundryViolationCount: message.boundryViolationCount,
+          boundryViolationTraceCount: message.boundryViolationTraceCount,
           bufferHitCount: message.bufferHitCount,
           bufferHitTraceCount: message.bufferHitTraceCount,
         })
-        if (message.boundaryHitCount > 0 || message.bufferHitCount > 0) {
+        if (message.boundryViolationCount > 0 || message.bufferHitCount > 0) {
           const hitParts = [
-            message.boundaryHitCount > 0
-              ? `boundaryHits=${message.boundaryHitCount} boundaryHitTraces=${message.boundaryHitTraceCount}`
+            message.boundryViolationCount > 0
+              ? `boundryViolations=${message.boundryViolationCount} boundryViolationTraces=${message.boundryViolationTraceCount}`
               : null,
             message.bufferHitCount > 0
               ? `bufferHits=${message.bufferHitCount} bufferHitTraces=${message.bufferHitTraceCount}`
@@ -572,8 +572,8 @@ const runMain = async () => {
           elapsedMs: message.elapsedMs,
           frameCount: 0,
           totalTraceCount: 0,
-          boundaryHitCount: 0,
-          boundaryHitTraceCount: 0,
+          boundryViolationCount: 0,
+          boundryViolationTraceCount: 0,
           bufferHitCount: 0,
           bufferHitTraceCount: 0,
           error: message.error,
@@ -617,8 +617,8 @@ const runMain = async () => {
         elapsedMs: performance.now() - startedAt,
         frameCount: 0,
         totalTraceCount: 0,
-        boundaryHitCount: 0,
-        boundaryHitTraceCount: 0,
+        boundryViolationCount: 0,
+        boundryViolationTraceCount: 0,
         bufferHitCount: 0,
         bufferHitTraceCount: 0,
         error: errorMessage,

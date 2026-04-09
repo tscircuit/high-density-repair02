@@ -1,7 +1,7 @@
 import { BaseSolver } from "@tscircuit/solver-utils"
 import type { GraphicsObject } from "graphics-debug"
 import { cloneRoutes } from "./high-density-repair-solver/functions/cloneRoutes"
-import { createBoundaryHitRects } from "./high-density-repair-solver/functions/createBoundaryHitRects"
+import { createBoundryViolationRects } from "./high-density-repair-solver/functions/createBoundryViolationRects"
 import { findInteriorDiagonalSegmentsInBufferZone } from "./high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
 import { getBoundaryRect } from "./high-density-repair-solver/functions/getBoundaryRect"
 import { getRoutePointLayer } from "./high-density-repair-solver/functions/getRoutePointLayer"
@@ -24,19 +24,20 @@ export type {
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
   private currentFrameIndex = 0
-  private showBoundaryHitMarkers: boolean
+  private showBoundryViolationMarkers: boolean
   public repairedRoutes: HdRoute[] = []
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
-    this.showBoundaryHitMarkers = params.showBoundaryHitMarkers ?? false
+    this.showBoundryViolationMarkers =
+      params.showBoundryViolationMarkers ?? false
   }
 
   override _setup(): void {
     this.buildFrames()
-    const boundaryHitCount = this.getCurrentBoundaryHitCount()
+    const boundryViolationCount = this.getCurrentBoundryViolationCount()
     this.stats = {
-      boundaryHitCount,
+      boundryViolationCount,
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
@@ -45,11 +46,11 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   override _step(): void {
     if (this.frames.length <= 1) {
-      const boundaryHitCount = this.getCurrentBoundaryHitCount()
-      this.showBoundaryHitMarkers = true
+      const boundryViolationCount = this.getCurrentBoundryViolationCount()
+      this.showBoundryViolationMarkers = true
       this.stats = {
         ...this.stats,
-        boundaryHitCount,
+        boundryViolationCount,
       }
       this.solved = true
       return
@@ -59,9 +60,9 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.currentFrameIndex += 1
     }
 
-    const boundaryHitCount = this.getCurrentBoundaryHitCount()
+    const boundryViolationCount = this.getCurrentBoundryViolationCount()
     this.stats = {
-      boundaryHitCount,
+      boundryViolationCount,
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
@@ -69,7 +70,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
 
     if (this.currentFrameIndex >= this.frames.length - 1) {
-      this.showBoundaryHitMarkers = true
+      this.showBoundryViolationMarkers = true
       this.solved = true
     }
   }
@@ -86,8 +87,8 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
   }
 
-  setShowBoundaryHitMarkers(show: boolean): void {
-    this.showBoundaryHitMarkers = show
+  setShowBoundryViolationMarkers(show: boolean): void {
+    this.showBoundryViolationMarkers = show
   }
 
   private buildFrames() {
@@ -110,7 +111,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     )
   }
 
-  private getBoundaryHitsForFrame(frame: VisualizationFrame) {
+  private getBoundryViolationsForFrame(frame: VisualizationFrame) {
     const boundary = getBoundaryRect(this.params.sample?.nodeWithPortPoints)
     if (!boundary) return []
     return findInteriorDiagonalSegmentsInBufferZone(
@@ -120,8 +121,8 @@ export class HighDensityRepairSolver extends BaseSolver {
     )
   }
 
-  private getCurrentBoundaryHitCount(): number {
-    return this.getBoundaryHitsForFrame(this.getCurrentFrame()).length
+  private getCurrentBoundryViolationCount(): number {
+    return this.getBoundryViolationsForFrame(this.getCurrentFrame()).length
   }
 
   override visualize(): GraphicsObject {
@@ -174,9 +175,9 @@ export class HighDensityRepairSolver extends BaseSolver {
           : `obstacle:${idx}`,
       }))
 
-    const boundaryHitRects =
-      this.showBoundaryHitMarkers && boundary
-        ? createBoundaryHitRects(this.getBoundaryHitsForFrame(frame))
+    const boundryViolationRects =
+      this.showBoundryViolationMarkers && boundary
+        ? createBoundryViolationRects(this.getBoundryViolationsForFrame(frame))
         : []
 
     const points = [
@@ -233,7 +234,7 @@ export class HighDensityRepairSolver extends BaseSolver {
         ...nodeRect,
         ...obstacleRects,
         ...(frame.overlayRects ?? []),
-        ...boundaryHitRects,
+        ...boundryViolationRects,
       ],
       points,
       lines,

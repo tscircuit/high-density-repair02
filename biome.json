@@ -6,7 +6,14 @@
     "indentStyle": "space"
   },
   "files": {
-    "includes": ["**", "!**/cosmos-export", "!**/dist", "!**/package.json"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/.git",
+      "!**/cosmos-export",
+      "!**/dist",
+      "!**/package.json"
+    ]
   },
   "javascript": {
     "formatter": {

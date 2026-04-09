@@ -330,8 +330,8 @@ jobs:
               return value > 0 ? `+${rendered}` : `-${rendered}`
             }
             const formatSignedPercentPoints = (value) => {
-              if (!Number.isFinite(value) || value === 0) return value === 0 ? '0.00pp' : 'n/a'
-              const rendered = `${Math.abs(value).toFixed(2)}pp`
+              if (!Number.isFinite(value) || value === 0) return value === 0 ? '0.00%' : 'n/a'
+              const rendered = `${Math.abs(value).toFixed(2)}%`
               return value > 0 ? `+${rendered}` : `-${rendered}`
             }
             const readJson = (path) => {

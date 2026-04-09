@@ -1,4 +1,5 @@
 import { BOUNDARY_SIDES, EPSILON } from "../shared/constants"
+import { isPointInsideBoundary } from "./isPointInsideBoundary"
 import type {
   BoundaryRect,
   BoundarySide,
@@ -35,6 +36,20 @@ const getBoundarySides = (
 
     return false
   })
+
+const getOutsideBoundarySides = (
+  point: RoutePoint,
+  boundary: BoundaryRect,
+): BoundarySide[] => {
+  const sides: BoundarySide[] = []
+
+  if (point.x < boundary.minX - EPSILON) sides.push("left")
+  if (point.x > boundary.maxX + EPSILON) sides.push("right")
+  if (point.y > boundary.maxY + EPSILON) sides.push("top")
+  if (point.y < boundary.minY - EPSILON) sides.push("bottom")
+
+  return sides
+}
 
 const segmentOverlapsBoundarySide = (
   start: RoutePoint,
@@ -95,7 +110,15 @@ export const findInteriorDiagonalSegmentsInBufferZone = (
       const touchedSides = BOUNDARY_SIDES.filter((side) =>
         segmentOverlapsBoundarySide(start, end, boundary, side),
       )
-      if (touchedSides.length === 0) continue
+      const startOutsideSides = getOutsideBoundarySides(start, boundary)
+      const endOutsideSides = getOutsideBoundarySides(end, boundary)
+      const pointOutsideBoundary =
+        !isPointInsideBoundary(start, boundary) ||
+        !isPointInsideBoundary(end, boundary)
+      const violationSides = Array.from(
+        new Set([...touchedSides, ...startOutsideSides, ...endOutsideSides]),
+      )
+      if (!pointOutsideBoundary && violationSides.length === 0) continue
 
       hits.push({
         routeIndex,
@@ -104,7 +127,7 @@ export const findInteriorDiagonalSegmentsInBufferZone = (
           route.rootConnectionName ??
           `route-${routeIndex}`,
         segmentIndex,
-        touchedSides,
+        touchedSides: violationSides,
         startSides,
         endSides,
         start,
