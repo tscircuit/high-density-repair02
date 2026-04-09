@@ -15,28 +15,28 @@ const sampleEntries = Object.entries(datasetModules)
   )
   .sort(([a], [b]) => a.localeCompare(b))
 
-export interface DatasetProblem {
+export interface Dataset01Problem {
   sampleName: string
   loadSample: () => Promise<DatasetSample>
 }
 
-export const datasetProblems: DatasetProblem[] = sampleEntries.map(
+export const dataset01Problems: Dataset01Problem[] = sampleEntries.map(
   ([sampleName, loadSample]) => ({
     sampleName,
     loadSample,
   }),
 )
 
-export const fullDatasetFixture = {
+export const fullDataset01Fixture = {
   sampleCount: sampleEntries.length,
   sampleNames: sampleEntries.map(([name]) => name),
-  problems: datasetProblems,
+  problems: dataset01Problems,
 }
 
-export const getDatasetSample = async (
+export const getDataset01Sample = async (
   sampleName: string,
 ): Promise<DatasetSample> => {
-  const problem = datasetProblems.find(
+  const problem = dataset01Problems.find(
     (entry) => entry.sampleName === sampleName,
   )
 

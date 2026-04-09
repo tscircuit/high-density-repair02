@@ -74,7 +74,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-CMD=(bun "scripts/benchmark-first-1000.ts")
+CMD=(bun "scripts/benchmark-datasets.ts")
 
 if [ -n "${SCENARIO_LIMIT}" ]; then
   CMD+=("--limit" "${SCENARIO_LIMIT}")

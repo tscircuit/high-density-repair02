@@ -13,7 +13,7 @@ import { findBufferZoneSegmentsNotStraightFromBoundary } from "../lib/high-densi
 import { findInteriorDiagonalSegmentsInBufferZone } from "../lib/high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
 import { getBoundaryRect } from "../lib/high-density-repair-solver/functions/getBoundaryRect"
 
-// Run with: bun run benchmark:first-1000
+// Run with: bun run benchmark:datasets
 
 type WorkerInput = {
   dataset: DatasetName

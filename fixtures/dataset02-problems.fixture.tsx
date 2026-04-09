@@ -36,7 +36,7 @@ const assetProblems: AssetProblem[] = Object.entries(assetModules)
       a.sourcePath.localeCompare(b.sourcePath),
   )
 
-export default function CircuitAndBugreportProblemsFixture() {
+export default function Dataset02ProblemsFixture() {
   const [caseNumberInput, setCaseNumberInput] = useState("1")
   const [input, setInput] = useState<AssetSolverInput | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)

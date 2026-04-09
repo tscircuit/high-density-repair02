@@ -1,5 +1,5 @@
 import { GenericSolverDebugger } from "@tscircuit/solver-utils/react"
-import { datasetProblems } from "fixtures/dataset"
+import { dataset01Problems } from "fixtures/dataset01"
 import type { GraphicsObject } from "graphics-debug"
 import { HighDensityRepairSolver } from "lib/high-density-repair-solver"
 import { createSideStripRect } from "lib/high-density-repair-solver/functions/createSideStripRect"
@@ -42,19 +42,19 @@ class FixtureDebugHighDensityRepairSolver extends HighDensityRepairSolver {
   }
 }
 
-export default function AllDatasetProblemsFixture() {
+export default function Dataset01ProblemsFixture() {
   const [sampleNumberInput, setSampleNumberInput] = useState("1")
   const [sample, setSample] = useState<DatasetSample | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const margin = 0.4
 
-  const maxSampleNumber = datasetProblems.length
+  const maxSampleNumber = dataset01Problems.length
   const parsedSampleNumber = Number.parseInt(sampleNumberInput, 10)
   const safeSampleNumber = Number.isFinite(parsedSampleNumber)
     ? Math.min(Math.max(parsedSampleNumber, 1), maxSampleNumber)
     : 1
   const selectedProblem =
-    datasetProblems[safeSampleNumber - 1] ?? datasetProblems[0]
+    dataset01Problems[safeSampleNumber - 1] ?? dataset01Problems[0]
 
   useEffect(() => {
     if (!selectedProblem) {
