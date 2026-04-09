@@ -292,9 +292,7 @@ const parseScenarioLimitArg = (
 
   const rawValue = Bun.argv[index + 1]
   if (!rawValue) {
-    throw new Error(
-      `Invalid value for ${flags.join(" or ")}: <missing>`,
-    )
+    throw new Error(`Invalid value for ${flags.join(" or ")}: <missing>`)
   }
 
   if (rawValue.toLowerCase() === "all") {
