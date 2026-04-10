@@ -1,0 +1,86 @@
+{
+  "nodeWithPortPoints": {
+    "capacityMeshNodeId": "cmn_23",
+    "center": {
+      "x": -0.6427280000000001,
+      "y": 5.952500000000001
+    },
+    "width": 1.075,
+    "height": 2.675,
+    "portPoints": [
+      {
+        "x": -1.180228,
+        "y": 5.7875,
+        "z": 0,
+        "connectionName": "source_trace_9",
+        "portPointId": "ce237_pp0_z0::0"
+      },
+      {
+        "x": -0.6427279999999999,
+        "y": 4.615,
+        "z": 0,
+        "connectionName": "source_trace_9",
+        "portPointId": "ce17_pp2_z0::0"
+      }
+    ]
+  },
+  "nodeHdRoutes": [
+    {
+      "connectionName": "source_trace_9",
+      "rootConnectionName": "source_trace_9",
+      "route": [
+        {
+          "x": -1.18,
+          "y": 5.788,
+          "z": 0
+        },
+        {
+          "x": -0.643,
+          "y": 4.615,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.15,
+      "vias": [],
+      "viaDiameter": 0.3
+    }
+  ],
+  "adjacentObstacles": [
+    {
+      "type": "rect",
+      "center": {
+        "x": -2.4302279999999996,
+        "y": 4.835
+      },
+      "width": 2.5,
+      "height": 1.1
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": -2.4302279999999996,
+        "y": 6.74
+      },
+      "width": 2.5,
+      "height": 1.1
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 0.7447720000000002,
+        "y": 8.004999999999999
+      },
+      "width": 1.7,
+      "height": 1.7
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 0.7447720000000002,
+        "y": 5.465
+      },
+      "width": 1.7,
+      "height": 1.7
+    }
+  ]
+}
