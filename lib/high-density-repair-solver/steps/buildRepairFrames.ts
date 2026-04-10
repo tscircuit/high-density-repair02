@@ -5,6 +5,7 @@ import { createInitialFrame } from "../functions/createInitialFrame"
 import { dedupeRoutePoints } from "../functions/dedupeRoutePoints"
 import { findClearanceConflicts } from "../functions/findClearanceConflicts"
 import { getBoundaryRect } from "../functions/getBoundaryRect"
+import { normalizeBoundaryAnchoredRoutes } from "../functions/normalizeBoundaryAnchoredRoutes"
 import {
   BOUNDARY_SIDES,
   DEFAULT_TRACE_THICKNESS,
@@ -137,7 +138,12 @@ export const buildRepairFrames = (
   captureProgressFrames = false,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
-  const baseRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
+  const baseRoutes = boundary
+    ? normalizeBoundaryAnchoredRoutes(
+        cloneRoutes(sample?.nodeHdRoutes ?? []),
+        boundary,
+      )
+    : cloneRoutes(sample?.nodeHdRoutes ?? [])
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
   const repairedRoutes = cloneRoutes(baseRoutes)
 
