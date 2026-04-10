@@ -26,6 +26,4 @@ test("sample0809 keeps vias aligned with layer transitions after repair", async 
       }>
     }
   ).repairedRoutes
-
- 
 })
