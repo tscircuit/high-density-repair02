@@ -66,10 +66,7 @@ const nudgeInteriorPointsInsideBoundary = ({
     const points = route.route ?? []
     if (points.length <= 2) continue
 
-    const rawNudge = Math.max(
-      (route.traceThickness ?? DEFAULT_TRACE_THICKNESS) / 2,
-      1e-3,
-    )
+    const rawNudge = clearanceMargin
     const maxXInteriorNudge = Math.max(boundary.width / 2 - EPSILON, 0)
     const maxYInteriorNudge = Math.max(boundary.height / 2 - EPSILON, 0)
     const xNudge = Math.min(rawNudge, maxXInteriorNudge)
