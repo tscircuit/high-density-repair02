@@ -6,5 +6,6 @@ export const ACCEPT_COLOR = "rgba(16, 185, 129, 0.14)"
 export const REJECT_COLOR = "rgba(220, 38, 38, 0.14)"
 export const CANDIDATE_STROKE = "#000000"
 export const EPSILON = 1e-6
+export const TRACE_CLEARANCE_REGRESSION_MAX = 0.1
 
 export const BOUNDARY_SIDES = ["top", "bottom", "left", "right"] as const
