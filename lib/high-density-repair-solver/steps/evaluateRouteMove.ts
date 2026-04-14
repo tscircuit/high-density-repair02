@@ -10,7 +10,6 @@ import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRe
 import { getRouteBoundaryOverflow } from "../functions/getRouteBoundaryOverflow"
 import { getRouteMovableIndexes } from "../functions/getRouteMovableIndexes"
 import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
-import { TRACE_CLEARANCE_REGRESSION_MAX } from "../shared/constants"
 import { routeEndpointsStayOnBoundarySides } from "../functions/routeEndpointsStayOnBoundarySides"
 import { wouldIncreaseExposureOnOtherSides } from "../functions/wouldIncreaseExposureOnOtherSides"
 import type {
@@ -292,10 +291,7 @@ export const evaluateRouteMove = ({
       currentRoutes,
       candidateRoutes,
       candidateRouteIndexes,
-      maximumAllowedClearance: Math.min(
-        moveAmount / 2,
-        TRACE_CLEARANCE_REGRESSION_MAX,
-      ),
+      maximumAllowedClearance: Math.min(moveAmount / 2, 0.1),
     })
 
     if (traceClearanceRegressions.length > 0) {

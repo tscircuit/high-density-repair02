@@ -4,15 +4,9 @@ import { createFinalFrame } from "../functions/createFinalFrame"
 import { createInitialFrame } from "../functions/createInitialFrame"
 import { dedupeRoutePoints } from "../functions/dedupeRoutePoints"
 import { findClearanceConflicts } from "../functions/findClearanceConflicts"
-import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
 import { getBoundaryRect } from "../functions/getBoundaryRect"
 import { normalizeBoundaryAnchoredRoutes } from "../functions/normalizeBoundaryAnchoredRoutes"
-import {
-  BOUNDARY_SIDES,
-  DEFAULT_TRACE_THICKNESS,
-  EPSILON,
-  TRACE_CLEARANCE_REGRESSION_MAX,
-} from "../shared/constants"
+import { BOUNDARY_SIDES, EPSILON } from "../shared/constants"
 import type {
   BuildRepairFramesResult,
   DatasetSample,
@@ -55,19 +49,6 @@ const introducesNewClearanceConflicts = (
   )
 }
 
-const introducesTraceClearanceRegression = (
-  currentRoutes: HdRoute[],
-  candidateRoutes: HdRoute[],
-  routeIndex: number,
-  maximumAllowedClearance: number,
-) =>
-  findTraceClearanceRegressions({
-    currentRoutes,
-    candidateRoutes,
-    candidateRouteIndexes: new Set([routeIndex]),
-    maximumAllowedClearance,
-  }).length > 0
-
 const nudgeInteriorPointsInsideBoundary = ({
   routes,
   boundary,
@@ -82,18 +63,11 @@ const nudgeInteriorPointsInsideBoundary = ({
     const points = route.route ?? []
     if (points.length <= 2) continue
 
-    const rawNudge = Math.min(
-      clearanceMargin,
-      Math.max((route.traceThickness ?? DEFAULT_TRACE_THICKNESS) / 2, 1e-3),
-    )
+    const rawNudge = clearanceMargin
     const maxXInteriorNudge = Math.max(boundary.width / 2 - EPSILON, 0)
     const maxYInteriorNudge = Math.max(boundary.height / 2 - EPSILON, 0)
     const xNudge = Math.min(rawNudge, maxXInteriorNudge)
     const yNudge = Math.min(rawNudge, maxYInteriorNudge)
-    const traceClearanceRegressionThreshold = Math.min(
-      Math.max(xNudge, yNudge) / 2,
-      TRACE_CLEARANCE_REGRESSION_MAX,
-    )
     const candidateRoute = cloneRoute(route)
     const candidatePoints = candidateRoute.route ?? []
     let changed = false
@@ -145,18 +119,8 @@ const nudgeInteriorPointsInsideBoundary = ({
       routeIndex,
       clearanceMargin,
     )
-    const introducesTraceRegressions = introducesTraceClearanceRegression(
-      routes,
-      candidateRoutes,
-      routeIndex,
-      traceClearanceRegressionThreshold,
-    )
 
-    if (
-      introducesNewTouches ||
-      introducesNewDrcClearanceConflicts ||
-      introducesTraceRegressions
-    ) {
+    if (introducesNewTouches || introducesNewDrcClearanceConflicts) {
       continue
     }
 
@@ -168,9 +132,6 @@ export const buildRepairFrames = (
   sample: DatasetSample | undefined,
   requestedMargin: number | undefined,
   captureProgressFrames = false,
-  options?: {
-    skipInteriorBoundaryNudge?: boolean
-  },
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const baseRoutes = boundary
@@ -217,13 +178,11 @@ export const buildRepairFrames = (
     })
   }
 
-  if (!options?.skipInteriorBoundaryNudge) {
-    nudgeInteriorPointsInsideBoundary({
-      routes: repairedRoutes,
-      boundary,
-      clearanceMargin: margin,
-    })
-  }
+  nudgeInteriorPointsInsideBoundary({
+    routes: repairedRoutes,
+    boundary,
+    clearanceMargin: margin,
+  })
 
   frames.push(
     createFinalFrame(
