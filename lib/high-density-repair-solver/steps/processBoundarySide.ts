@@ -13,6 +13,39 @@ import type {
 } from "../shared/types"
 import { evaluateRouteMove } from "./evaluateRouteMove"
 
+const getTangentialMoveSide = (
+  route: HdRoute,
+  movableIndexes: number[],
+  boundary: BoundaryRect,
+  side: BoundarySide,
+  margin: number,
+): BoundarySide | null => {
+  const points = route.route ?? []
+  if (movableIndexes.length === 0) return null
+
+  if (side === "top" || side === "bottom") {
+    const averageX =
+      movableIndexes.reduce(
+        (sum, index) => sum + (points[index]?.x ?? boundary.center.x),
+        0,
+      ) / movableIndexes.length
+
+    if (averageX < boundary.center.x - margin / 2) return "right"
+    if (averageX > boundary.center.x + margin / 2) return "left"
+    return null
+  }
+
+  const averageY =
+    movableIndexes.reduce(
+      (sum, index) => sum + (points[index]?.y ?? boundary.center.y),
+      0,
+    ) / movableIndexes.length
+
+  if (averageY > boundary.center.y + margin / 2) return "bottom"
+  if (averageY < boundary.center.y - margin / 2) return "top"
+  return null
+}
+
 export const processBoundarySide = ({
   side,
   sample,
@@ -68,7 +101,7 @@ export const processBoundarySide = ({
     const isTwoPointRoute = (route.route?.length ?? 0) === 2
     if (isTwoPointRoute && !hasObstacle) continue
 
-    const evaluation = evaluateRouteMove({
+    let evaluation = evaluateRouteMove({
       currentRoutes: repairedRoutes,
       routeIndex,
       side,
@@ -78,6 +111,33 @@ export const processBoundarySide = ({
       geometryCache,
     })
     if (!evaluation) continue
+
+    if (evaluation.rejected) {
+      const tangentialMoveSide = getTangentialMoveSide(
+        route,
+        evaluation.movableIndexes,
+        boundary,
+        side,
+        margin,
+      )
+
+      if (tangentialMoveSide) {
+        const tangentialEvaluation = evaluateRouteMove({
+          currentRoutes: repairedRoutes,
+          routeIndex,
+          side,
+          moveSide: tangentialMoveSide,
+          boundary,
+          margin,
+          moveAmount,
+          geometryCache,
+        })
+
+        if (tangentialEvaluation && !tangentialEvaluation.rejected) {
+          evaluation = tangentialEvaluation
+        }
+      }
+    }
 
     if (captureProgressFrames) {
       frames.push(
@@ -110,8 +170,6 @@ export const processBoundarySide = ({
       }
     }
 
-    for (const candidateRouteIndex of evaluation.candidateRouteIndexes) {
-      attemptedRoutes.add(candidateRouteIndex)
-    }
+    attemptedRoutes.add(routeIndex)
   }
 }

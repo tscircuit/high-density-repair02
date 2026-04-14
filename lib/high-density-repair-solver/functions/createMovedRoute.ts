@@ -109,7 +109,9 @@ export const createMovedRoute = (
   }
 
   const translationAmount =
-    targetAxisValue === undefined ? Math.max(moveAmount, margin) : moveAmount
+    translateOnly || targetAxisValue === undefined
+      ? Math.max(moveAmount, margin)
+      : moveAmount
   const delta = sideDirection(side, translationAmount)
 
   if (

@@ -42,6 +42,7 @@ export type Segment = {
   end: RoutePoint
   routeIndex: number
   pointIndex: number
+  endPointIndex: number
   thickness: number
   halfThickness: number
   layer: "top" | "bottom"

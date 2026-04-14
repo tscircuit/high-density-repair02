@@ -1,14 +1,10 @@
 import type { HdRoute, RouteGeometryCache } from "../shared/types"
 import {
   findClearanceConflicts,
+  getClearanceConflictKey,
   type ClearanceConflict,
 } from "./findClearanceConflicts"
 import { getRoutePushableIndexes } from "./getRoutePushableIndexes"
-
-const getConflictKey = (
-  routeIndexes: [number, number],
-  layers: ["top" | "bottom" | "via", "top" | "bottom" | "via"],
-) => `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`
 
 export const findNewUnpushableZeroClearanceConflicts = ({
   currentRoutes,
@@ -44,13 +40,11 @@ export const findNewUnpushableZeroClearanceConflicts = ({
     )
 
   const currentConflictKeys = new Set(
-    currentZeroConflicts.map((conflict) =>
-      getConflictKey(conflict.routeIndexes, conflict.layers),
-    ),
+    currentZeroConflicts.map((conflict) => getClearanceConflictKey(conflict)),
   )
 
   return candidateZeroConflicts.filter((conflict) => {
-    const conflictKey = getConflictKey(conflict.routeIndexes, conflict.layers)
+    const conflictKey = getClearanceConflictKey(conflict)
     if (currentConflictKeys.has(conflictKey)) return false
 
     const [firstRouteIndex, secondRouteIndex] = conflict.routeIndexes

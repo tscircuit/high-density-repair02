@@ -5,6 +5,7 @@ import { pointsCoincide } from "./pointsCoincide"
 export const getRoutePushableIndexes = (
   route: HdRoute,
   preferredLayers: Array<"top" | "bottom" | "via">,
+  preferredPointIndexes: number[] = [],
 ) => {
   const points = route.route ?? []
   const pushableIndexes: number[] = []
@@ -16,16 +17,29 @@ export const getRoutePushableIndexes = (
     return [0, 1]
   }
 
-  for (let index = 1; index < points.length - 1; index += 1) {
-    if (wantsAllLayers) {
-      pushableIndexSet.add(index)
-      pushableIndexes.push(index)
-      continue
+  const addPushableIndex = (index: number) => {
+    if (index <= 0 || index >= points.length - 1) return
+    if (pushableIndexSet.has(index)) return
+    const point = points[index]
+    if (!point) return
+    if (
+      !wantsAllLayers &&
+      !preferredLayers.includes(getRoutePointLayer(point))
+    ) {
+      return
     }
 
-    if (preferredLayers.includes(getRoutePointLayer(points[index]))) {
-      pushableIndexSet.add(index)
-      pushableIndexes.push(index)
+    pushableIndexSet.add(index)
+    pushableIndexes.push(index)
+  }
+
+  if (preferredPointIndexes.length > 0) {
+    for (const index of preferredPointIndexes) {
+      addPushableIndex(index)
+    }
+  } else {
+    for (let index = 1; index < points.length - 1; index += 1) {
+      addPushableIndex(index)
     }
   }
 

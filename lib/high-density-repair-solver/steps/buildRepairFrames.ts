@@ -3,7 +3,11 @@ import { cloneRoutes } from "../functions/cloneRoutes"
 import { createFinalFrame } from "../functions/createFinalFrame"
 import { createInitialFrame } from "../functions/createInitialFrame"
 import { dedupeRoutePoints } from "../functions/dedupeRoutePoints"
-import { findClearanceConflicts } from "../functions/findClearanceConflicts"
+import {
+  findClearanceConflicts,
+  getClearanceConflictKey,
+} from "../functions/findClearanceConflicts"
+import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
 import { getBoundaryRect } from "../functions/getBoundaryRect"
 import { normalizeBoundaryAnchoredRoutes } from "../functions/normalizeBoundaryAnchoredRoutes"
 import { BOUNDARY_SIDES, EPSILON } from "../shared/constants"
@@ -16,14 +20,6 @@ import type {
 } from "../shared/types"
 import { processBoundarySide } from "./processBoundarySide"
 
-const toConflictKey = ({
-  routeIndexes,
-  layers,
-}: {
-  routeIndexes: [number, number]
-  layers: ["top" | "bottom" | "via", "top" | "bottom" | "via"]
-}) => `${routeIndexes[0]}:${layers[0]}:${routeIndexes[1]}:${layers[1]}`
-
 const introducesNewClearanceConflicts = (
   currentRoutes: HdRoute[],
   candidateRoutes: HdRoute[],
@@ -35,7 +31,7 @@ const introducesNewClearanceConflicts = (
       currentRoutes,
       new Set([routeIndex]),
       minimumClearance,
-    ).map(toConflictKey),
+    ).map(getClearanceConflictKey),
   )
   const candidateConflicts = findClearanceConflicts(
     candidateRoutes,
@@ -45,7 +41,7 @@ const introducesNewClearanceConflicts = (
 
   return candidateConflicts.some(
     (candidateConflict) =>
-      !currentConflicts.has(toConflictKey(candidateConflict)),
+      !currentConflicts.has(getClearanceConflictKey(candidateConflict)),
   )
 }
 
@@ -119,8 +115,19 @@ const nudgeInteriorPointsInsideBoundary = ({
       routeIndex,
       clearanceMargin,
     )
+    const introducesTraceClearanceRegressions =
+      findTraceClearanceRegressions({
+        currentRoutes: routes,
+        candidateRoutes,
+        candidateRouteIndexes: new Set([routeIndex]),
+        maximumAllowedClearance: clearanceMargin,
+      }).length > 0
 
-    if (introducesNewTouches || introducesNewDrcClearanceConflicts) {
+    if (
+      introducesNewTouches ||
+      introducesNewDrcClearanceConflicts ||
+      introducesTraceClearanceRegressions
+    ) {
       continue
     }
 

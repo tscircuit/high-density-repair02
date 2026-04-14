@@ -37,3 +37,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 bun.lock
 
 *.diff.png
+
+benchmark-result.json

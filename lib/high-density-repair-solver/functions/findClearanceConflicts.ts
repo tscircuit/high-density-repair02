@@ -17,6 +17,7 @@ type ConflictLayer = "top" | "bottom" | "via"
 export type ClearanceConflict = {
   routeIndexes: [number, number]
   layers: [ConflictLayer, ConflictLayer]
+  routePointIndexes: [number[], number[]]
 }
 
 const conflictKey = (
@@ -24,10 +25,19 @@ const conflictKey = (
   firstLayer: ConflictLayer,
   secondRouteIndex: number,
   secondLayer: ConflictLayer,
+  firstRoutePointIndexes: number[],
+  secondRoutePointIndexes: number[],
 ) =>
   firstRouteIndex < secondRouteIndex
-    ? `${firstRouteIndex}:${firstLayer}:${secondRouteIndex}:${secondLayer}`
-    : `${secondRouteIndex}:${secondLayer}:${firstRouteIndex}:${firstLayer}`
+    ? `${firstRouteIndex}:${firstLayer}:${firstRoutePointIndexes.join(",")}:${secondRouteIndex}:${secondLayer}:${secondRoutePointIndexes.join(",")}`
+    : `${secondRouteIndex}:${secondLayer}:${secondRoutePointIndexes.join(",")}:${firstRouteIndex}:${firstLayer}:${firstRoutePointIndexes.join(",")}`
+
+export const getClearanceConflictKey = ({
+  routeIndexes,
+  layers,
+  routePointIndexes,
+}: ClearanceConflict) =>
+  `${routeIndexes[0]}:${layers[0]}:${routePointIndexes[0].join(",")}:${routeIndexes[1]}:${layers[1]}:${routePointIndexes[1].join(",")}`
 
 const pushConflict = (
   conflicts: Map<string, ClearanceConflict>,
@@ -35,20 +45,50 @@ const pushConflict = (
   firstLayer: ConflictLayer,
   secondRouteIndex: number,
   secondLayer: ConflictLayer,
+  firstRoutePointIndexes: number[],
+  secondRoutePointIndexes: number[],
 ) => {
   const key = conflictKey(
     firstRouteIndex,
     firstLayer,
     secondRouteIndex,
     secondLayer,
+    firstRoutePointIndexes,
+    secondRoutePointIndexes,
   )
 
-  if (conflicts.has(key)) return
+  const existingConflict = conflicts.get(key)
+  if (existingConflict) {
+    const [firstPointIndexes, secondPointIndexes] =
+      firstRouteIndex < secondRouteIndex
+        ? [firstRoutePointIndexes, secondRoutePointIndexes]
+        : [secondRoutePointIndexes, firstRoutePointIndexes]
+
+    for (const index of firstPointIndexes) {
+      if (!existingConflict.routePointIndexes[0].includes(index)) {
+        existingConflict.routePointIndexes[0].push(index)
+      }
+    }
+
+    for (const index of secondPointIndexes) {
+      if (!existingConflict.routePointIndexes[1].includes(index)) {
+        existingConflict.routePointIndexes[1].push(index)
+      }
+    }
+
+    existingConflict.routePointIndexes[0].sort((a, b) => a - b)
+    existingConflict.routePointIndexes[1].sort((a, b) => a - b)
+    return
+  }
 
   if (firstRouteIndex < secondRouteIndex) {
     conflicts.set(key, {
       routeIndexes: [firstRouteIndex, secondRouteIndex],
       layers: [firstLayer, secondLayer],
+      routePointIndexes: [
+        [...new Set(firstRoutePointIndexes)].sort((a, b) => a - b),
+        [...new Set(secondRoutePointIndexes)].sort((a, b) => a - b),
+      ],
     })
     return
   }
@@ -56,7 +96,53 @@ const pushConflict = (
   conflicts.set(key, {
     routeIndexes: [secondRouteIndex, firstRouteIndex],
     layers: [secondLayer, firstLayer],
+    routePointIndexes: [
+      [...new Set(secondRoutePointIndexes)].sort((a, b) => a - b),
+      [...new Set(firstRoutePointIndexes)].sort((a, b) => a - b),
+    ],
   })
+}
+
+const getSegmentRoutePointIndexes = (segment: Segment) => {
+  const pointIndexes: number[] = []
+
+  for (
+    let pointIndex = segment.pointIndex;
+    pointIndex <= segment.endPointIndex;
+    pointIndex += 1
+  ) {
+    pointIndexes.push(pointIndex)
+  }
+
+  return pointIndexes
+}
+
+const pointIndexesIntersect = (
+  firstPointIndexes: number[],
+  secondPointIndexes: Set<number> | undefined,
+) => {
+  if (!secondPointIndexes) return true
+  return firstPointIndexes.some((pointIndex) =>
+    secondPointIndexes.has(pointIndex),
+  )
+}
+
+const getViaRoutePointIndexes = (route: HdRoute, via: RouteVia) => {
+  const points = route.route ?? []
+  const pointIndexes: number[] = []
+
+  for (let pointIndex = 0; pointIndex < points.length; pointIndex += 1) {
+    const point = points[pointIndex]
+    if (!point) continue
+    if (
+      Math.abs(point.x - via.center.x) <= EPSILON &&
+      Math.abs(point.y - via.center.y) <= EPSILON
+    ) {
+      pointIndexes.push(pointIndex)
+    }
+  }
+
+  return pointIndexes
 }
 
 const boundsOverlap = (
@@ -122,6 +208,7 @@ export const findClearanceConflicts = (
   movedRouteIndexes: Set<number>,
   margin: number,
   geometryCache?: RouteGeometryCache,
+  routePointIndexesByMovedRoute?: Map<number, Set<number>>,
 ): ClearanceConflict[] => {
   const routeGeometries = routes.map((route, routeIndex) =>
     getRouteGeometry(route, routeIndex, geometryCache),
@@ -172,8 +259,17 @@ export const findClearanceConflicts = (
     const movedGeometry = routeGeometries[movedRouteIndex]
     if (!movedGeometry) continue
     const nearbyRouteIndexes = getNearbyRouteIndexes(movedRouteIndex)
+    const movedRoutePointIndexes =
+      routePointIndexesByMovedRoute?.get(movedRouteIndex)
 
     for (const first of movedGeometry.segments) {
+      const firstRoutePointIndexes = getSegmentRoutePointIndexes(first)
+      if (
+        !pointIndexesIntersect(firstRoutePointIndexes, movedRoutePointIndexes)
+      ) {
+        continue
+      }
+
       for (const otherRouteIndex of nearbyRouteIndexes) {
         if (
           movedRouteIndex > otherRouteIndex &&
@@ -184,10 +280,21 @@ export const findClearanceConflicts = (
 
         const otherGeometry = routeGeometries[otherRouteIndex]
         if (!otherGeometry) continue
+        const otherRoutePointIndexes =
+          routePointIndexesByMovedRoute?.get(otherRouteIndex)
 
         const sameLayerSegments = otherGeometry.segmentsByLayer[first.layer]
 
         for (const second of sameLayerSegments) {
+          const secondRoutePointIndexes = getSegmentRoutePointIndexes(second)
+          if (
+            !pointIndexesIntersect(
+              secondRoutePointIndexes,
+              otherRoutePointIndexes,
+            )
+          ) {
+            continue
+          }
           if (segmentsShareEndpoint(first, second)) continue
           if (!segmentBoxesOverlap(first, second, margin)) continue
 
@@ -207,6 +314,8 @@ export const findClearanceConflicts = (
               first.layer,
               second.routeIndex,
               second.layer,
+              firstRoutePointIndexes,
+              secondRoutePointIndexes,
             )
           }
         }
@@ -218,8 +327,20 @@ export const findClearanceConflicts = (
     const movedGeometry = routeGeometries[movedRouteIndex]
     if (!movedGeometry) continue
     const nearbyRouteIndexes = getNearbyRouteIndexes(movedRouteIndex)
+    const movedRoutePointIndexes =
+      routePointIndexesByMovedRoute?.get(movedRouteIndex)
 
     for (const via of movedGeometry.vias) {
+      const viaRoutePointIndexes = getViaRoutePointIndexes(
+        routes[via.routeIndex] as HdRoute,
+        via,
+      )
+      if (
+        !pointIndexesIntersect(viaRoutePointIndexes, movedRoutePointIndexes)
+      ) {
+        continue
+      }
+
       for (const otherRouteIndex of nearbyRouteIndexes) {
         if (
           movedRouteIndex > otherRouteIndex &&
@@ -230,8 +351,19 @@ export const findClearanceConflicts = (
 
         const otherGeometry = routeGeometries[otherRouteIndex]
         if (!otherGeometry) continue
+        const otherRoutePointIndexes =
+          routePointIndexesByMovedRoute?.get(otherRouteIndex)
 
         for (const segment of otherGeometry.segments) {
+          const segmentRoutePointIndexes = getSegmentRoutePointIndexes(segment)
+          if (
+            !pointIndexesIntersect(
+              segmentRoutePointIndexes,
+              otherRoutePointIndexes,
+            )
+          ) {
+            continue
+          }
           if (
             !pointBoxOverlapsSegment(via.center, via.radius, segment, margin)
           ) {
@@ -253,6 +385,8 @@ export const findClearanceConflicts = (
               segment.layer,
               via.routeIndex,
               "via",
+              segmentRoutePointIndexes,
+              viaRoutePointIndexes,
             )
           }
         }
@@ -264,13 +398,33 @@ export const findClearanceConflicts = (
     const movedGeometry = routeGeometries[movedRouteIndex]
     if (!movedGeometry) continue
     const nearbyRouteIndexes = getNearbyRouteIndexes(movedRouteIndex)
+    const movedRoutePointIndexes =
+      routePointIndexesByMovedRoute?.get(movedRouteIndex)
 
     for (const segment of movedGeometry.segments) {
+      const segmentRoutePointIndexes = getSegmentRoutePointIndexes(segment)
+      if (
+        !pointIndexesIntersect(segmentRoutePointIndexes, movedRoutePointIndexes)
+      ) {
+        continue
+      }
+
       for (const otherRouteIndex of nearbyRouteIndexes) {
         const otherGeometry = routeGeometries[otherRouteIndex]
         if (!otherGeometry) continue
+        const otherRoutePointIndexes =
+          routePointIndexesByMovedRoute?.get(otherRouteIndex)
 
         for (const via of otherGeometry.vias) {
+          const viaRoutePointIndexes = getViaRoutePointIndexes(
+            routes[via.routeIndex] as HdRoute,
+            via,
+          )
+          if (
+            !pointIndexesIntersect(viaRoutePointIndexes, otherRoutePointIndexes)
+          ) {
+            continue
+          }
           if (
             !pointBoxOverlapsSegment(via.center, via.radius, segment, margin)
           ) {
@@ -292,6 +446,8 @@ export const findClearanceConflicts = (
               segment.layer,
               via.routeIndex,
               "via",
+              segmentRoutePointIndexes,
+              viaRoutePointIndexes,
             )
           }
         }
@@ -303,8 +459,23 @@ export const findClearanceConflicts = (
     const movedGeometry = routeGeometries[movedRouteIndex]
     if (!movedGeometry) continue
     const nearbyRouteIndexes = getNearbyRouteIndexes(movedRouteIndex)
+    const movedRoutePointIndexes =
+      routePointIndexesByMovedRoute?.get(movedRouteIndex)
 
     for (const first of movedGeometry.vias) {
+      const firstViaRoutePointIndexes = getViaRoutePointIndexes(
+        routes[first.routeIndex] as HdRoute,
+        first,
+      )
+      if (
+        !pointIndexesIntersect(
+          firstViaRoutePointIndexes,
+          movedRoutePointIndexes,
+        )
+      ) {
+        continue
+      }
+
       for (const otherRouteIndex of nearbyRouteIndexes) {
         if (
           movedRouteIndex > otherRouteIndex &&
@@ -315,8 +486,22 @@ export const findClearanceConflicts = (
 
         const otherGeometry = routeGeometries[otherRouteIndex]
         if (!otherGeometry) continue
+        const otherRoutePointIndexes =
+          routePointIndexesByMovedRoute?.get(otherRouteIndex)
 
         for (const second of otherGeometry.vias) {
+          const secondViaRoutePointIndexes = getViaRoutePointIndexes(
+            routes[second.routeIndex] as HdRoute,
+            second,
+          )
+          if (
+            !pointIndexesIntersect(
+              secondViaRoutePointIndexes,
+              otherRoutePointIndexes,
+            )
+          ) {
+            continue
+          }
           if (!viaBoxesOverlap(first, second, margin)) continue
 
           const minDistanceAllowed =
@@ -333,6 +518,8 @@ export const findClearanceConflicts = (
               "via",
               second.routeIndex,
               "via",
+              firstViaRoutePointIndexes,
+              secondViaRoutePointIndexes,
             )
           }
         }

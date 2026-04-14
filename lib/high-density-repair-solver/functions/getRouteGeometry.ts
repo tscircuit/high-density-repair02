@@ -105,6 +105,7 @@ export const getRouteGeometry = (
       end,
       routeIndex,
       pointIndex,
+      endPointIndex: endIndex,
       thickness,
       halfThickness: padding,
       layer,
