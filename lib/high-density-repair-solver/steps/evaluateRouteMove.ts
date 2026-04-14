@@ -67,20 +67,6 @@ export const evaluateRouteMove = ({
   let candidateMarginConflicts: ClearanceConflict[] | null = null
   let currentZeroConflicts: ClearanceConflict[] | null = null
   let candidateZeroConflicts: ClearanceConflict[] | null = null
-  const debugMoves = process.env.HD_REPAIR_DEBUG === "1"
-
-  const getRouteLabel = (index: number) =>
-    currentRoutes[index]?.connectionName ??
-    currentRoutes[index]?.rootConnectionName ??
-    `route-${index}`
-
-  const debugLog = (message: string, payload?: Record<string, unknown>) => {
-    if (!debugMoves) return
-    console.error(
-      `[high-density-repair] ${message}`,
-      payload ? JSON.stringify(payload) : "",
-    )
-  }
 
   const getConflictKeys = (conflicts: ClearanceConflict[]) =>
     new Set(conflicts.map((conflict) => getClearanceConflictKey(conflict)))
@@ -161,31 +147,10 @@ export const evaluateRouteMove = ({
       if (activeRouteIndex === routeIndex) {
         return null
       }
-      debugLog("rejecting push with no local movable points", {
-        side,
-        moveSide,
-        routeIndex,
-        activeRouteIndex,
-        activeRoute: getRouteLabel(activeRouteIndex),
-        activePreferredLayers,
-        activePreferredPointIndexes,
-      })
       rejected = true
       rejectionReason = "eventual-overlap"
       break
     }
-
-    debugLog("moving route", {
-      side,
-      moveSide,
-      routeIndex,
-      route: getRouteLabel(routeIndex),
-      activeRouteIndex,
-      activeRoute: getRouteLabel(activeRouteIndex),
-      activePreferredLayers,
-      activePreferredPointIndexes,
-      activeMovableIndexes,
-    })
 
     const activePoints = activeRoute.route ?? []
     const targetAxisValue =
@@ -231,16 +196,6 @@ export const evaluateRouteMove = ({
     )
 
     if (candidateBoundaryOverflow > originalBoundaryOverflow + 1e-6) {
-      debugLog("rejecting move with increased boundary overflow", {
-        side,
-        moveSide,
-        routeIndex,
-        activeRouteIndex,
-        activeRoute: getRouteLabel(activeRouteIndex),
-        activeMovableIndexes,
-        originalBoundaryOverflow,
-        candidateBoundaryOverflow,
-      })
       rejected = true
       rejectionReason = "boundary"
       break
@@ -253,14 +208,6 @@ export const evaluateRouteMove = ({
         boundary,
       )
     ) {
-      debugLog("rejecting move with endpoint boundary regression", {
-        side,
-        moveSide,
-        routeIndex,
-        activeRouteIndex,
-        activeRoute: getRouteLabel(activeRouteIndex),
-        activeMovableIndexes,
-      })
       rejected = true
       rejectionReason = "endpoint-boundary"
       break
@@ -307,16 +254,6 @@ export const evaluateRouteMove = ({
           nextRouteIndex,
           new Set(nextRoutePointIndexes),
         )
-        debugLog("queueing local push", {
-          side,
-          moveSide,
-          movedRouteIndex: activeRouteIndex,
-          movedRoute: getRouteLabel(activeRouteIndex),
-          nextRouteIndex,
-          nextRoute: getRouteLabel(nextRouteIndex),
-          nextRouteLayer,
-          nextRoutePointIndexes,
-        })
         continue
       }
 
@@ -343,12 +280,6 @@ export const evaluateRouteMove = ({
 
     for (const conflictKey of candidateConflictKeys) {
       if (currentConflictKeys.has(conflictKey)) continue
-      debugLog("rejecting move with new margin conflict", {
-        side,
-        moveSide,
-        routeIndex,
-        conflictKey,
-      })
       rejected = true
       rejectionReason = "eventual-overlap"
       break
@@ -363,12 +294,6 @@ export const evaluateRouteMove = ({
 
     for (const conflictKey of candidateZeroConflictKeys) {
       if (currentZeroConflictKeys.has(conflictKey)) continue
-      debugLog("rejecting move with new zero-clearance conflict", {
-        side,
-        moveSide,
-        routeIndex,
-        conflictKey,
-      })
       rejected = true
       rejectionReason = "eventual-overlap"
       break
@@ -394,12 +319,6 @@ export const evaluateRouteMove = ({
     for (const conflict of candidateFullZeroConflicts) {
       const conflictKey = getClearanceConflictKey(conflict)
       if (currentFullZeroConflictKeys.has(conflictKey)) continue
-      debugLog("rejecting move with full-route zero-clearance conflict", {
-        side,
-        moveSide,
-        routeIndex,
-        conflictKey,
-      })
       rejected = true
       rejectionReason = "eventual-overlap"
       break
@@ -416,12 +335,6 @@ export const evaluateRouteMove = ({
     })
 
     if (boundaryTouchRegressions.length > 0) {
-      debugLog("rejecting move with boundary touch regression", {
-        side,
-        moveSide,
-        routeIndex,
-        boundaryTouchRegressions,
-      })
       rejected = true
       rejectionReason = "boundary-touch"
     }
@@ -438,12 +351,6 @@ export const evaluateRouteMove = ({
     })
 
     if (fixedTraceTouches.length > 0) {
-      debugLog("rejecting move with fixed trace touch", {
-        side,
-        moveSide,
-        routeIndex,
-        fixedTraceTouches,
-      })
       rejected = true
       rejectionReason = "fixed-trace-touch"
     }
@@ -458,12 +365,6 @@ export const evaluateRouteMove = ({
     })
 
     if (traceClearanceRegressions.length > 0) {
-      debugLog("rejecting move with trace clearance regression", {
-        side,
-        moveSide,
-        routeIndex,
-        traceClearanceRegressions,
-      })
       rejected = true
       rejectionReason = "trace-clearance"
     }
@@ -480,26 +381,9 @@ export const evaluateRouteMove = ({
       margin,
     )
   ) {
-    debugLog("rejecting move with side exposure regression", {
-      side,
-      moveSide,
-      routeIndex,
-    })
     rejected = true
     rejectionReason = "side-regression"
   }
-
-  debugLog(rejected ? "move rejected" : "move accepted", {
-    side,
-    moveSide,
-    routeIndex,
-    route: getRouteLabel(routeIndex),
-    candidateRouteIndexes: Array.from(candidateRouteIndexes),
-    candidateRoutes: Array.from(candidateRouteIndexes).map((index) =>
-      getRouteLabel(index),
-    ),
-    rejectionReason: rejected ? rejectionReason : undefined,
-  })
 
   return {
     isTwoPointRoute,
