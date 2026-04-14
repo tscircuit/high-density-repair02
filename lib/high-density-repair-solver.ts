@@ -2,11 +2,16 @@ import { BaseSolver } from "@tscircuit/solver-utils"
 import type { GraphicsObject } from "graphics-debug"
 import { cloneRoutes } from "./high-density-repair-solver/functions/cloneRoutes"
 import { createBoundryViolationRects } from "./high-density-repair-solver/functions/createBoundryViolationRects"
+import { createTraceViolationRects } from "./high-density-repair-solver/functions/createTraceViolationRects"
+import { findClearanceConflicts } from "./high-density-repair-solver/functions/findClearanceConflicts"
 import { findInteriorDiagonalSegmentsInBufferZone } from "./high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
 import { getBoundaryRect } from "./high-density-repair-solver/functions/getBoundaryRect"
 import { getRoutePointLayer } from "./high-density-repair-solver/functions/getRoutePointLayer"
 import { splitRouteIntoLayerSegments } from "./high-density-repair-solver/functions/splitRouteIntoLayerSegments"
-import { BOTTOM_LAYER_COLOR } from "./high-density-repair-solver/shared/constants"
+import {
+  BOTTOM_LAYER_COLOR,
+  TRACE_CLEARANCE_REGRESSION_MAX,
+} from "./high-density-repair-solver/shared/constants"
 import type {
   HdRoute,
   HighDensityRepairSolverParams,
@@ -36,8 +41,10 @@ export class HighDensityRepairSolver extends BaseSolver {
   override _setup(): void {
     this.buildFrames()
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
+    const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
       boundryViolationCount,
+      traceViolationCount,
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
@@ -47,10 +54,12 @@ export class HighDensityRepairSolver extends BaseSolver {
   override _step(): void {
     if (this.frames.length <= 1) {
       const boundryViolationCount = this.getCurrentBoundryViolationCount()
+      const traceViolationCount = this.getCurrentTraceViolationCount()
       this.showBoundryViolationMarkers = true
       this.stats = {
         ...this.stats,
         boundryViolationCount,
+        traceViolationCount,
       }
       this.solved = true
       return
@@ -61,8 +70,10 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
 
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
+    const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
       boundryViolationCount,
+      traceViolationCount,
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
@@ -80,10 +91,13 @@ export class HighDensityRepairSolver extends BaseSolver {
   }
 
   override getOutput() {
+    const traceViolationCount = this.getCurrentTraceViolationCount()
+
     return {
       margin: this.params.margin ?? 0.4,
       repairedRoutes: this.repairedRoutes,
       frameCount: this.frames.length,
+      traceViolationCount,
     }
   }
 
@@ -123,6 +137,42 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   private getCurrentBoundryViolationCount(): number {
     return this.getBoundryViolationsForFrame(this.getCurrentFrame()).length
+  }
+
+  private getRouteNetNames(route: HdRoute | undefined): string[] {
+    if (!route) return []
+    const names = [route.connectionName, route.rootConnectionName].filter(
+      (name): name is string => Boolean(name),
+    )
+    return Array.from(new Set(names))
+  }
+
+  private areRoutesSameNet(
+    firstRoute: HdRoute | undefined,
+    secondRoute: HdRoute | undefined,
+  ): boolean {
+    const firstNames = this.getRouteNetNames(firstRoute)
+    const secondNames = this.getRouteNetNames(secondRoute)
+    if (firstNames.length === 0 || secondNames.length === 0) return false
+    return firstNames.some((name) => secondNames.includes(name))
+  }
+
+  private getCurrentTraceViolationCount(): number {
+    const frame = this.getCurrentFrame()
+    const routes = frame.routes
+    const movedRouteIndexes = new Set(routes.map((_, routeIndex) => routeIndex))
+    return findClearanceConflicts(
+      routes,
+      movedRouteIndexes,
+      TRACE_CLEARANCE_REGRESSION_MAX,
+    ).filter(
+      (conflict) =>
+        !(conflict.layers[0] === "via" && conflict.layers[1] === "via") &&
+        !this.areRoutesSameNet(
+          routes[conflict.routeIndexes[0]],
+          routes[conflict.routeIndexes[1]],
+        ),
+    ).length
   }
 
   override visualize(): GraphicsObject {
@@ -179,6 +229,9 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.showBoundryViolationMarkers && boundary
         ? createBoundryViolationRects(this.getBoundryViolationsForFrame(frame))
         : []
+    const traceViolationRects = this.showBoundryViolationMarkers
+      ? createTraceViolationRects(frame.routes, TRACE_CLEARANCE_REGRESSION_MAX)
+      : []
 
     const points = [
       ...(node?.portPoints ?? []).map((portPoint) => ({
@@ -235,6 +288,7 @@ export class HighDensityRepairSolver extends BaseSolver {
         ...obstacleRects,
         ...(frame.overlayRects ?? []),
         ...boundryViolationRects,
+        ...traceViolationRects,
       ],
       points,
       lines,
