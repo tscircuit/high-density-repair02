@@ -2,7 +2,7 @@ import { BaseSolver } from "@tscircuit/solver-utils"
 import type { GraphicsObject } from "graphics-debug"
 import { cloneRoutes } from "./high-density-repair-solver/functions/cloneRoutes"
 import { createBoundryViolationRects } from "./high-density-repair-solver/functions/createBoundryViolationRects"
-import { createTraceViolationRects } from "./high-density-repair-solver/functions/createTraceViolationRects"
+import { createTraceViolationCircles } from "./high-density-repair-solver/functions/createTraceViolationCircles"
 import { findClearanceConflicts } from "./high-density-repair-solver/functions/findClearanceConflicts"
 import { findInteriorDiagonalSegmentsInBufferZone } from "./high-density-repair-solver/functions/findInteriorDiagonalSegmentsInBufferZone"
 import { getBoundaryRect } from "./high-density-repair-solver/functions/getBoundaryRect"
@@ -229,8 +229,11 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.showBoundryViolationMarkers && boundary
         ? createBoundryViolationRects(this.getBoundryViolationsForFrame(frame))
         : []
-    const traceViolationRects = this.showBoundryViolationMarkers
-      ? createTraceViolationRects(frame.routes, TRACE_CLEARANCE_REGRESSION_MAX)
+    const traceViolationCircles = this.showBoundryViolationMarkers
+      ? createTraceViolationCircles(
+          frame.routes,
+          TRACE_CLEARANCE_REGRESSION_MAX,
+        )
       : []
 
     const points = [
@@ -279,6 +282,7 @@ export class HighDensityRepairSolver extends BaseSolver {
         label: route.connectionName ? `via:${route.connectionName}` : "via",
       })),
     )
+    circles.push(...traceViolationCircles)
 
     return {
       coordinateSystem: "cartesian",
@@ -288,7 +292,6 @@ export class HighDensityRepairSolver extends BaseSolver {
         ...obstacleRects,
         ...(frame.overlayRects ?? []),
         ...boundryViolationRects,
-        ...traceViolationRects,
       ],
       points,
       lines,
