@@ -5,16 +5,79 @@ import { getRouteGeometry } from "./getRouteGeometry"
 import { segmentDistance } from "./segmentDistance"
 import { segmentsShareEndpoint } from "./segmentsShareEndpoint"
 
-type TraceViolationRect = {
+type TraceViolationCircle = {
   center: XY
-  width: number
-  height: number
+  radius: number
   stroke: string
   fill: string
   label: string
 }
 
-const MIN_MARKER_SIZE = 0.2
+type TraceViolationCandidate = {
+  center: XY
+  label: string
+}
+
+const MARKER_CLUSTER_DISTANCE = 0.28
+const MIN_MARKER_RADIUS = 0.2
+const MAX_MARKER_RADIUS = 0.3
+const MARKER_STROKE = "#f59e0b"
+const MARKER_FILL = "rgba(245, 158, 11, 0.46)"
+
+const distance = (first: XY, second: XY) =>
+  Math.hypot(first.x - second.x, first.y - second.y)
+
+const createClusteredViolationCircles = (
+  candidates: TraceViolationCandidate[],
+): TraceViolationCircle[] => {
+  const clusters: Array<{
+    center: XY
+    labels: string[]
+    count: number
+  }> = []
+
+  for (const candidate of candidates) {
+    const cluster = clusters.find(
+      (currentCluster) =>
+        distance(currentCluster.center, candidate.center) <=
+        MARKER_CLUSTER_DISTANCE,
+    )
+
+    if (!cluster) {
+      clusters.push({
+        center: candidate.center,
+        labels: [candidate.label],
+        count: 1,
+      })
+      continue
+    }
+
+    cluster.center = {
+      x:
+        (cluster.center.x * cluster.count + candidate.center.x) /
+        (cluster.count + 1),
+      y:
+        (cluster.center.y * cluster.count + candidate.center.y) /
+        (cluster.count + 1),
+    }
+    cluster.labels.push(candidate.label)
+    cluster.count += 1
+  }
+
+  return clusters.map((cluster, clusterIndex) => ({
+    center: cluster.center,
+    radius: Math.min(
+      MAX_MARKER_RADIUS,
+      MIN_MARKER_RADIUS + Math.sqrt(cluster.count - 1) * 0.035,
+    ),
+    stroke: MARKER_STROKE,
+    fill: MARKER_FILL,
+    label:
+      cluster.count === 1
+        ? cluster.labels[0]
+        : `trace-violations:${clusterIndex}:count-${cluster.count}`,
+  }))
+}
 
 const getRouteNetNames = (route: HdRoute | undefined): string[] => {
   if (!route) return []
@@ -82,18 +145,18 @@ const pointBoxOverlapsSegment = (
   )
 }
 
-export const createTraceViolationRects = (
+export const createTraceViolationCircles = (
   routes: HdRoute[],
   minimumClearance: number,
-): TraceViolationRect[] => {
+): TraceViolationCircle[] => {
   const geometryCache = new WeakMap()
   const routeGeometries = routes.map((route, routeIndex) =>
     getRouteGeometry(route, routeIndex, geometryCache),
   )
-  const markers: TraceViolationRect[] = []
+  const markers: TraceViolationCandidate[] = []
   const markerLabels = new Set<string>()
 
-  const pushMarker = (marker: TraceViolationRect) => {
+  const pushMarker = (marker: TraceViolationCandidate) => {
     if (markerLabels.has(marker.label)) return
     markerLabels.add(marker.label)
     markers.push(marker)
@@ -178,10 +241,6 @@ export const createTraceViolationRects = (
                 x: (overlapMinX + overlapMaxX) / 2,
                 y: (overlapMinY + overlapMaxY) / 2,
               },
-              width: Math.max(overlapMaxX - overlapMinX, MIN_MARKER_SIZE),
-              height: Math.max(overlapMaxY - overlapMinY, MIN_MARKER_SIZE),
-              stroke: "#059669",
-              fill: "rgba(16, 185, 129, 0.32)",
               label: `trace-violation:${firstRouteIndex}:s${firstSegment.pointIndex}:${secondRouteIndex}:s${secondSegment.pointIndex}:${layer}`,
             })
           }
@@ -218,10 +277,6 @@ export const createTraceViolationRects = (
 
           pushMarker({
             center: secondVia.center,
-            width: Math.max(minDistanceAllowed * 2, MIN_MARKER_SIZE),
-            height: Math.max(minDistanceAllowed * 2, MIN_MARKER_SIZE),
-            stroke: "#059669",
-            fill: "rgba(16, 185, 129, 0.32)",
             label: `trace-violation:${firstRouteIndex}:s${firstSegment.pointIndex}:${secondRouteIndex}:v${secondViaIndex}`,
           })
         }
@@ -254,10 +309,6 @@ export const createTraceViolationRects = (
 
           pushMarker({
             center: firstVia.center,
-            width: Math.max(minDistanceAllowed * 2, MIN_MARKER_SIZE),
-            height: Math.max(minDistanceAllowed * 2, MIN_MARKER_SIZE),
-            stroke: "#059669",
-            fill: "rgba(16, 185, 129, 0.32)",
             label: `trace-violation:${firstRouteIndex}:v${firstViaIndex}:${secondRouteIndex}:s${secondSegment.pointIndex}`,
           })
         }
@@ -265,5 +316,5 @@ export const createTraceViolationRects = (
     }
   }
 
-  return markers
+  return createClusteredViolationCircles(markers)
 }
