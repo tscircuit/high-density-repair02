@@ -13,6 +13,7 @@ import { getRouteMovableIndexes } from "../functions/getRouteMovableIndexes"
 import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
 import { routeEndpointsStayOnBoundarySides } from "../functions/routeEndpointsStayOnBoundarySides"
 import { wouldIncreaseExposureOnOtherSides } from "../functions/wouldIncreaseExposureOnOtherSides"
+import { TRACE_CLEARANCE_REGRESSION_MAX } from "../shared/constants"
 import type {
   BoundaryRect,
   BoundarySide,
@@ -361,7 +362,10 @@ export const evaluateRouteMove = ({
       currentRoutes,
       candidateRoutes,
       candidateRouteIndexes,
-      maximumAllowedClearance: Math.min(margin / 2, 0.1),
+      maximumAllowedClearance: Math.min(
+        margin / 2,
+        TRACE_CLEARANCE_REGRESSION_MAX,
+      ),
     })
 
     if (traceClearanceRegressions.length > 0) {
