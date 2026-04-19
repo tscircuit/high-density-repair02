@@ -108,7 +108,9 @@ export const createMovedRoute = (
     return cloneRoute(route)
   }
 
-  const translationAmount = translateOnly ? moveAmount : Math.max(moveAmount, margin)
+  const translationAmount = translateOnly
+    ? moveAmount
+    : Math.max(moveAmount, margin)
   const delta = sideDirection(side, translationAmount)
 
   if (
