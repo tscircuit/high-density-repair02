@@ -16,6 +16,7 @@ import {
   BOUNDARY_SIDES,
   EPSILON,
   MAX_REPAIR_PASSES,
+  TRACE_CLEARANCE_REGRESSION_MAX,
 } from "../shared/constants"
 import type {
   BoundaryRect,
@@ -149,6 +150,42 @@ const countBoundaryViolations = (
   margin: number,
 ) => findInteriorDiagonalSegmentsInBufferZone(routes, boundary, margin).length
 
+const getRouteNetNames = (route: HdRoute | undefined): string[] => {
+  if (!route) return []
+  const names = [route.connectionName, route.rootConnectionName].filter(
+    (name): name is string => Boolean(name),
+  )
+  return Array.from(new Set(names))
+}
+
+const areRoutesSameNet = (
+  firstRoute: HdRoute | undefined,
+  secondRoute: HdRoute | undefined,
+) => {
+  const firstNames = getRouteNetNames(firstRoute)
+  const secondNames = getRouteNetNames(secondRoute)
+  if (firstNames.length === 0 || secondNames.length === 0) return false
+  return firstNames.some((name) => secondNames.includes(name))
+}
+
+const countTraceViolations = (
+  routes: HdRoute[],
+  geometryCache: RouteGeometryCache,
+) =>
+  findClearanceConflicts(
+    routes,
+    new Set(routes.map((_, routeIndex) => routeIndex)),
+    TRACE_CLEARANCE_REGRESSION_MAX,
+    geometryCache,
+  ).filter(
+    (conflict) =>
+      !(conflict.layers[0] === "via" && conflict.layers[1] === "via") &&
+      !areRoutesSameNet(
+        routes[conflict.routeIndexes[0]],
+        routes[conflict.routeIndexes[1]],
+      ),
+  ).length
+
 /**
  * Rotate side ordering per pass to avoid always processing the same side first,
  * which bakes in a bias in the single-pass repair.
@@ -248,12 +285,24 @@ export const buildRepairFrames = (
   // leaves points exactly on the boundary, because their endpoints were
   // clamped there. The cleanup itself iterates internally per route, so
   // we only need to call it once.
+  const cleanupCandidateRoutes = cloneRoutes(repairedRoutes)
+  const traceViolationsBeforeCleanup = countTraceViolations(
+    repairedRoutes,
+    geometryCache,
+  )
   targetedBoundaryCleanup({
-    routes: repairedRoutes,
+    routes: cleanupCandidateRoutes,
     boundary,
     margin,
     geometryCache,
   })
+  const traceViolationsAfterCleanup = countTraceViolations(
+    cleanupCandidateRoutes,
+    geometryCache,
+  )
+  if (traceViolationsAfterCleanup <= traceViolationsBeforeCleanup) {
+    repairedRoutes.splice(0, repairedRoutes.length, ...cleanupCandidateRoutes)
+  }
 
   nudgeInteriorPointsInsideBoundary({
     routes: repairedRoutes,

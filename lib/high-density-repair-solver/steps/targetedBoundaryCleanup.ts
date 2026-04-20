@@ -6,9 +6,8 @@ import {
 } from "../functions/findClearanceConflicts"
 import { findInteriorDiagonalSegmentsInBufferZone } from "../functions/findInteriorDiagonalSegmentsInBufferZone"
 import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
+import { isPointNearSide } from "../functions/isPointNearSide"
 import {
-  BOUNDARY_SIDES,
-  DEFAULT_TRACE_THICKNESS,
   EPSILON,
   TRACE_CLEARANCE_REGRESSION_MAX,
 } from "../shared/constants"
@@ -20,22 +19,12 @@ import type {
   RoutePoint,
 } from "../shared/types"
 
-const isPointOnSide = (
+const isPointInSideBuffer = (
   point: RoutePoint,
   boundary: BoundaryRect,
   side: BoundarySide,
-) => {
-  switch (side) {
-    case "left":
-      return Math.abs(point.x - boundary.minX) <= EPSILON
-    case "right":
-      return Math.abs(point.x - boundary.maxX) <= EPSILON
-    case "top":
-      return Math.abs(point.y - boundary.maxY) <= EPSILON
-    case "bottom":
-      return Math.abs(point.y - boundary.minY) <= EPSILON
-  }
-}
+  margin: number,
+) => isPointNearSide(point, boundary, side, margin)
 
 const nudgedPointInwardFromSide = (
   point: RoutePoint,
@@ -79,71 +68,10 @@ const areRoutesSameNet = (
 const countRouteViolations = (
   route: HdRoute | undefined,
   boundary: BoundaryRect,
+  margin: number,
 ): number => {
-  const points = route?.route ?? []
-  if (points.length < 2) return 0
-
-  const getOutsideBoundarySides = (point: RoutePoint): BoundarySide[] => {
-    const sides: BoundarySide[] = []
-    if (point.x < boundary.minX - EPSILON) sides.push("left")
-    if (point.x > boundary.maxX + EPSILON) sides.push("right")
-    if (point.y > boundary.maxY + EPSILON) sides.push("top")
-    if (point.y < boundary.minY - EPSILON) sides.push("bottom")
-    return sides
-  }
-
-  const segmentOverlapsBoundarySide = (
-    start: RoutePoint,
-    end: RoutePoint,
-    side: BoundarySide,
-  ) => {
-    switch (side) {
-      case "left":
-        return (
-          Math.abs(start.x - boundary.minX) <= EPSILON &&
-          Math.abs(end.x - boundary.minX) <= EPSILON &&
-          Math.abs(end.y - start.y) > EPSILON
-        )
-      case "right":
-        return (
-          Math.abs(start.x - boundary.maxX) <= EPSILON &&
-          Math.abs(end.x - boundary.maxX) <= EPSILON &&
-          Math.abs(end.y - start.y) > EPSILON
-        )
-      case "top":
-        return (
-          Math.abs(start.y - boundary.maxY) <= EPSILON &&
-          Math.abs(end.y - boundary.maxY) <= EPSILON &&
-          Math.abs(end.x - start.x) > EPSILON
-        )
-      case "bottom":
-        return (
-          Math.abs(start.y - boundary.minY) <= EPSILON &&
-          Math.abs(end.y - boundary.minY) <= EPSILON &&
-          Math.abs(end.x - start.x) > EPSILON
-        )
-    }
-  }
-
-  let violations = 0
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const start = points[i]
-    const end = points[i + 1]
-    if (!start || !end) continue
-    const touchedSides = BOUNDARY_SIDES.filter((side) =>
-      segmentOverlapsBoundarySide(start, end, side),
-    )
-    const startOutsideSides = getOutsideBoundarySides(start)
-    const endOutsideSides = getOutsideBoundarySides(end)
-    if (
-      touchedSides.length > 0 ||
-      startOutsideSides.length > 0 ||
-      endOutsideSides.length > 0
-    ) {
-      violations += 1
-    }
-  }
-  return violations
+  if (!route) return 0
+  return findInteriorDiagonalSegmentsInBufferZone([route], boundary, margin).length
 }
 
 /**
@@ -192,7 +120,7 @@ export const targetedBoundaryCleanup = ({
     0.01,
     margin / 4,
     margin / 2,
-    margin + DEFAULT_TRACE_THICKNESS / 2 + EPSILON,
+    margin + EPSILON * 8,
   ]
   let movesAccepted = 0
 
@@ -215,6 +143,7 @@ export const targetedBoundaryCleanup = ({
     const afterViolationCount = countRouteViolations(
       candidateRoutes[routeIndex],
       boundary,
+      margin,
     )
     if (afterViolationCount >= beforeViolationCount) return false
 
@@ -247,20 +176,18 @@ export const targetedBoundaryCleanup = ({
       return false
     }
 
-    // Reject if the nudge would push a pair that was clearly above
-    // the TRACE_CLEARANCE_REGRESSION_MAX threshold into violating it.
-    // A tiny tolerance avoids false rejections from floating-point noise
-    // when clearances sit right at the threshold.
-    const traceRegressionEpsilon = 0.02
+    // Reject any new trace-clearance regression for different nets.
+    // This keeps boundary cleanup from trading away trace quality.
     const traceRegressions = findTraceClearanceRegressions({
       currentRoutes: routes,
       candidateRoutes,
       candidateRouteIndexes: new Set([routeIndex]),
-      maximumAllowedClearance: TRACE_CLEARANCE_REGRESSION_MAX,
+      maximumAllowedClearance: Math.min(
+        margin / 2,
+        TRACE_CLEARANCE_REGRESSION_MAX,
+      ),
     }).filter(
       (regression) =>
-        regression.previousClearance >
-          TRACE_CLEARANCE_REGRESSION_MAX + traceRegressionEpsilon &&
         !areRoutesSameNet(
           routes[regression.routeIndexes[0]],
           routes[regression.routeIndexes[1]],
@@ -327,8 +254,8 @@ export const targetedBoundaryCleanup = ({
     const points = currentRoute.route ?? []
     if (points.length !== 2) return false
     const [start, end] = points as [RoutePoint, RoutePoint]
-    if (!isPointOnSide(start, boundary, side)) return false
-    if (!isPointOnSide(end, boundary, side)) return false
+    if (!isPointInSideBuffer(start, boundary, side, margin)) return false
+    if (!isPointInSideBuffer(end, boundary, side, margin)) return false
 
     // If either endpoint sits at a corner, the naive bridge would cross
     // the perpendicular boundary side and create a new violation on that
@@ -371,6 +298,7 @@ export const targetedBoundaryCleanup = ({
           const beforeViolationCount = countRouteViolations(
             routes[routeIndex],
             boundary,
+            margin,
           )
           if (
             beforeViolationCount > 0 &&
@@ -385,6 +313,7 @@ export const targetedBoundaryCleanup = ({
         const beforeViolationCount = countRouteViolations(
           routes[routeIndex],
           boundary,
+          margin,
         )
         if (beforeViolationCount === 0) break
 
@@ -393,7 +322,7 @@ export const targetedBoundaryCleanup = ({
         for (let i = 1; i < points.length - 1; i += 1) {
           const point = points[i]
           if (!point) continue
-          if (isPointOnSide(point, boundary, side)) {
+          if (isPointInSideBuffer(point, boundary, side, margin)) {
             flushPointIndexes.push(i)
           }
         }
@@ -433,6 +362,7 @@ export const targetedBoundaryCleanup = ({
             routeViolationCount = countRouteViolations(
               routes[routeIndex],
               boundary,
+              margin,
             )
           }
           i = j + 1
@@ -445,13 +375,14 @@ export const targetedBoundaryCleanup = ({
           for (let k = 1; k < pointsSnapshot.length - 1; k += 1) {
             const point = pointsSnapshot[k]
             if (!point) continue
-            if (!isPointOnSide(point, boundary, side)) continue
+            if (!isPointInSideBuffer(point, boundary, side, margin)) continue
             if (tryNudgeGroup(routeIndex, [k], side, routeViolationCount)) {
               movesAccepted += 1
               appliedAny = true
               routeViolationCount = countRouteViolations(
                 routes[routeIndex],
                 boundary,
+                margin,
               )
             }
           }
@@ -476,10 +407,15 @@ export const targetedBoundaryCleanup = ({
     const beforeViolationCount = countRouteViolations(
       routes[routeIndex],
       boundary,
+      margin,
     )
     if (beforeViolationCount === 0) continue
     for (const side of sides) {
-      if (!points.every((point) => isPointOnSide(point, boundary, side))) continue
+      if (
+        !points.every((point) => isPointInSideBuffer(point, boundary, side, margin))
+      ) {
+        continue
+      }
       const firstZ = points[0]?.z
       if (!points.every((point) => point.z === firstZ)) continue
       const simplifiedRoute: HdRoute = {

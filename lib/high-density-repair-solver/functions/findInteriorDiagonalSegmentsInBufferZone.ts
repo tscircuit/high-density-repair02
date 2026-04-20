@@ -18,6 +18,85 @@ export interface BufferZoneSegmentHit {
   end: RoutePoint
 }
 
+const getSideStripBounds = (
+  boundary: BoundaryRect,
+  side: BoundarySide,
+  margin: number,
+) => {
+  switch (side) {
+    case "left":
+      return {
+        minX: boundary.minX,
+        maxX: boundary.minX + margin,
+        minY: boundary.minY,
+        maxY: boundary.maxY,
+      }
+    case "right":
+      return {
+        minX: boundary.maxX - margin,
+        maxX: boundary.maxX,
+        minY: boundary.minY,
+        maxY: boundary.maxY,
+      }
+    case "top":
+      return {
+        minX: boundary.minX,
+        maxX: boundary.maxX,
+        minY: boundary.maxY - margin,
+        maxY: boundary.maxY,
+      }
+    case "bottom":
+      return {
+        minX: boundary.minX,
+        maxX: boundary.maxX,
+        minY: boundary.minY,
+        maxY: boundary.minY + margin,
+      }
+  }
+}
+
+const getSegmentOverlapLengthWithRect = (
+  start: RoutePoint,
+  end: RoutePoint,
+  rect: { minX: number; maxX: number; minY: number; maxY: number },
+) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+
+  let tMin = 0
+  let tMax = 1
+
+  const clip = (p: number, q: number) => {
+    if (Math.abs(p) <= EPSILON) {
+      return q >= -EPSILON
+    }
+
+    const r = q / p
+
+    if (p < 0) {
+      if (r > tMax) return false
+      if (r > tMin) tMin = r
+      return true
+    }
+
+    if (r < tMin) return false
+    if (r < tMax) tMax = r
+    return true
+  }
+
+  if (
+    !clip(-dx, start.x - rect.minX) ||
+    !clip(dx, rect.maxX - start.x) ||
+    !clip(-dy, start.y - rect.minY) ||
+    !clip(dy, rect.maxY - start.y)
+  ) {
+    return 0
+  }
+
+  const segmentLength = Math.hypot(dx, dy)
+  return Math.max(0, tMax - tMin) * segmentLength
+}
+
 const getBoundarySides = (
   point: RoutePoint,
   boundary: BoundaryRect,
@@ -51,36 +130,26 @@ const getOutsideBoundarySides = (
   return sides
 }
 
-const segmentOverlapsBoundarySide = (
+const isSegmentParallelToSide = (
   start: RoutePoint,
   end: RoutePoint,
-  boundary: BoundaryRect,
   side: BoundarySide,
 ) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+
   switch (side) {
     case "left":
-      return (
-        Math.abs(start.x - boundary.minX) <= EPSILON &&
-        Math.abs(end.x - boundary.minX) <= EPSILON &&
-        Math.abs(end.y - start.y) > EPSILON
-      )
     case "right":
       return (
-        Math.abs(start.x - boundary.maxX) <= EPSILON &&
-        Math.abs(end.x - boundary.maxX) <= EPSILON &&
-        Math.abs(end.y - start.y) > EPSILON
+        Math.abs(dx) <= EPSILON &&
+        Math.abs(dy) > EPSILON
       )
     case "top":
-      return (
-        Math.abs(start.y - boundary.maxY) <= EPSILON &&
-        Math.abs(end.y - boundary.maxY) <= EPSILON &&
-        Math.abs(end.x - start.x) > EPSILON
-      )
     case "bottom":
       return (
-        Math.abs(start.y - boundary.minY) <= EPSILON &&
-        Math.abs(end.y - boundary.minY) <= EPSILON &&
-        Math.abs(end.x - start.x) > EPSILON
+        Math.abs(dy) <= EPSILON &&
+        Math.abs(dx) > EPSILON
       )
   }
 }
@@ -88,9 +157,11 @@ const segmentOverlapsBoundarySide = (
 export const findInteriorDiagonalSegmentsInBufferZone = (
   routes: HdRoute[],
   boundary: BoundaryRect,
-  _margin: number,
+  margin: number,
 ): BufferZoneSegmentHit[] => {
   const hits: BufferZoneSegmentHit[] = []
+  const effectiveMargin = Math.max(margin, EPSILON)
+  const acceptedOverlap = Math.min(0.1, effectiveMargin / 4)
 
   for (let routeIndex = 0; routeIndex < routes.length; routeIndex += 1) {
     const route = routes[routeIndex]
@@ -105,13 +176,20 @@ export const findInteriorDiagonalSegmentsInBufferZone = (
       const end = points[segmentIndex + 1]
       if (!start || !end) continue
 
-      const startSides = getBoundarySides(start, boundary)
-      const endSides = getBoundarySides(end, boundary)
-      const touchedSides = BOUNDARY_SIDES.filter((side) =>
-        segmentOverlapsBoundarySide(start, end, boundary, side),
-      )
       const startOutsideSides = getOutsideBoundarySides(start, boundary)
       const endOutsideSides = getOutsideBoundarySides(end, boundary)
+      const startSides = getBoundarySides(start, boundary)
+      const endSides = getBoundarySides(end, boundary)
+      const touchedSides = BOUNDARY_SIDES.filter((side) => {
+        const overlapLength = getSegmentOverlapLengthWithRect(
+          start,
+          end,
+          getSideStripBounds(boundary, side, effectiveMargin),
+        )
+        if (overlapLength <= acceptedOverlap) return false
+        if (!isSegmentParallelToSide(start, end, side)) return false
+        return true
+      })
       const pointOutsideBoundary =
         !isPointInsideBoundary(start, boundary) ||
         !isPointInsideBoundary(end, boundary)
