@@ -467,7 +467,7 @@ const runWorker = async () => {
   const solver = new HighDensityRepairSolver({
     sample,
     margin,
-    captureProgressFrames: true,
+    captureProgressFrames: false,
   })
   const startedAt = performance.now()
   let lastProgressAt = startedAt
