@@ -11,6 +11,7 @@ export type PortPoint = XY & {
 export type HdRoute = {
   capacityMeshNodeId?: string
   connectionName?: string
+  regionId?: string
   rootConnectionName?: string
   route?: RoutePoint[]
   traceThickness?: number
