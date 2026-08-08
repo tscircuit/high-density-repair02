@@ -11,6 +11,7 @@ import {
 import { findInteriorDiagonalSegmentsInBufferZone } from "../functions/findInteriorDiagonalSegmentsInBufferZone"
 import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
 import { getBoundaryRect } from "../functions/getBoundaryRect"
+import { getHighDensityRepairViolationCounts } from "../functions/getHighDensityRepairViolationCounts"
 import { normalizeBoundaryAnchoredRoutes } from "../functions/normalizeBoundaryAnchoredRoutes"
 import {
   BOUNDARY_SIDES,
@@ -222,6 +223,7 @@ export const buildRepairFrames = (
       boundary: null,
       baseRoutes,
       repairedRoutes,
+      repairWasAccepted: true,
       margin,
       frames: [
         {
@@ -313,9 +315,24 @@ export const buildRepairFrames = (
     clearanceMargin: margin,
   })
 
+  const baselineViolationCount = getHighDensityRepairViolationCounts({
+    nodeWithPortPoints: sample?.nodeWithPortPoints,
+    nodeHdRoutes: baseRoutes,
+    margin,
+  }).totalViolationCount
+  const repairedViolationCount = getHighDensityRepairViolationCounts({
+    nodeWithPortPoints: sample?.nodeWithPortPoints,
+    nodeHdRoutes: repairedRoutes,
+    margin,
+  }).totalViolationCount
+  const repairWasAccepted = repairedViolationCount <= baselineViolationCount
+  const outputRoutes = repairWasAccepted
+    ? repairedRoutes
+    : cloneRoutes(baseRoutes)
+
   frames.push(
     createFinalFrame(
-      cloneRoutes(repairedRoutes),
+      cloneRoutes(outputRoutes),
       cloneRoutes(baseRoutes),
       margin,
     ),
@@ -324,7 +341,8 @@ export const buildRepairFrames = (
   return {
     boundary,
     baseRoutes,
-    repairedRoutes,
+    repairedRoutes: outputRoutes,
+    repairWasAccepted,
     frames,
     margin,
   }
