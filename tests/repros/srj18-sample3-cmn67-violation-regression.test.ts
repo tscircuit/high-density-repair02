@@ -27,5 +27,6 @@ test("rejects srj18 sample3 cmn_67 repair that increases violations", async () =
   expect(inputViolationCount).toBe(15)
   expect(outputViolationCount).toBe(15)
   expect(output.repairWasAccepted).toBe(false)
+  expect(output.repairedRoutes).not.toEqual(sample?.nodeHdRoutes ?? [])
   await expect(solver.visualize()).toMatchGraphicsSvg(import.meta.path)
 })
