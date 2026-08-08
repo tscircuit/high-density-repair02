@@ -10,6 +10,11 @@ export interface HighDensityRepairViolationCounts {
   totalViolationCount: number
 }
 
+export interface HighDensityRepairTraceViolationSummary {
+  traceViolationCount: number
+  routePairKeys: string[]
+}
+
 const getRouteNetNames = (route: HdRoute | undefined): string[] => {
   if (!route) return []
   const routeNetNames = [route.connectionName, route.rootConnectionName].filter(
@@ -32,6 +37,45 @@ const areRoutesSameNet = (
   )
 }
 
+export const getHighDensityRepairTraceViolationSummary = ({
+  nodeHdRoutes,
+  routeIndexesToCheck,
+  includeViaViaViolations = false,
+}: {
+  nodeHdRoutes: HdRoute[]
+  routeIndexesToCheck?: number[]
+  includeViaViaViolations?: boolean
+}): HighDensityRepairTraceViolationSummary => {
+  const movedRouteIndexes = new Set(
+    routeIndexesToCheck ?? nodeHdRoutes.map((_, routeIndex) => routeIndex),
+  )
+  const traceViolations = findClearanceConflicts(
+    nodeHdRoutes,
+    movedRouteIndexes,
+    TRACE_CLEARANCE_REGRESSION_MAX,
+  ).filter(
+    (conflict) =>
+      (includeViaViaViolations ||
+        !(conflict.layers[0] === "via" && conflict.layers[1] === "via")) &&
+      !areRoutesSameNet(
+        nodeHdRoutes[conflict.routeIndexes[0]],
+        nodeHdRoutes[conflict.routeIndexes[1]],
+      ),
+  )
+
+  return {
+    traceViolationCount: traceViolations.length,
+    routePairKeys: Array.from(
+      new Set(
+        traceViolations.map(
+          (conflict) =>
+            `${conflict.routeIndexes[0]}:${conflict.layers[0]}:${conflict.routeIndexes[1]}:${conflict.layers[1]}`,
+        ),
+      ),
+    ).sort(),
+  }
+}
+
 export const getHighDensityRepairViolationCounts = ({
   nodeWithPortPoints,
   nodeHdRoutes,
@@ -50,22 +94,11 @@ export const getHighDensityRepairViolationCounts = ({
     ? findInteriorDiagonalSegmentsInBufferZone(nodeHdRoutes, boundary, margin)
         .length
     : 0
-  const movedRouteIndexes = new Set(
-    routeIndexesToCheck ?? nodeHdRoutes.map((_, routeIndex) => routeIndex),
-  )
-  const traceViolationCount = findClearanceConflicts(
+  const { traceViolationCount } = getHighDensityRepairTraceViolationSummary({
     nodeHdRoutes,
-    movedRouteIndexes,
-    TRACE_CLEARANCE_REGRESSION_MAX,
-  ).filter(
-    (conflict) =>
-      (includeViaViaViolations ||
-        !(conflict.layers[0] === "via" && conflict.layers[1] === "via")) &&
-      !areRoutesSameNet(
-        nodeHdRoutes[conflict.routeIndexes[0]],
-        nodeHdRoutes[conflict.routeIndexes[1]],
-      ),
-  ).length
+    routeIndexesToCheck,
+    includeViaViaViolations,
+  })
 
   return {
     boundaryViolationCount,

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test"
-import { getHighDensityRepairViolationCounts } from "../lib"
+import {
+  getHighDensityRepairTraceViolationSummary,
+  getHighDensityRepairViolationCounts,
+} from "../lib"
 
 test("counts repairable boundary geometry without running the solver", (): void => {
   expect(
@@ -129,4 +132,46 @@ test("optionally includes via-to-via violations", (): void => {
       includeViaViaViolations: true,
     }).traceViolationCount,
   ).toBe(1)
+})
+
+test("identifies the conflicting route pairs for transactional guards", (): void => {
+  const routes = [
+    {
+      connectionName: "selected",
+      route: [
+        { x: -1, y: 0, z: 0 },
+        { x: 1, y: 0, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+    {
+      connectionName: "conflicting",
+      route: [
+        { x: -1, y: 0.1, z: 0 },
+        { x: 1, y: 0.1, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+    {
+      connectionName: "unrelated",
+      route: [
+        { x: -1, y: 1, z: 0 },
+        { x: 1, y: 1, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+  ]
+
+  expect(
+    getHighDensityRepairTraceViolationSummary({
+      nodeHdRoutes: routes,
+      routeIndexesToCheck: [0],
+    }),
+  ).toEqual({
+    traceViolationCount: 1,
+    routePairKeys: ["0:top:1:top"],
+  })
 })
