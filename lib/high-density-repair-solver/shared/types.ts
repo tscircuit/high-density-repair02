@@ -119,6 +119,7 @@ export type DatasetSample = {
 export interface HighDensityRepairSolverParams {
   sample?: DatasetSample
   margin?: number
+  maxEstimatedRepairWork?: number
   captureProgressFrames?: boolean
   showBoundryViolationMarkers?: boolean
 }

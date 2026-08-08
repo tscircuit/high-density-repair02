@@ -8,6 +8,7 @@ import {
   getHighDensityRepairViolationCounts,
   type HighDensityRepairViolationCounts,
 } from "./high-density-repair-solver/functions/getHighDensityRepairViolationCounts"
+import { getHighDensityRepairWorkEstimate } from "./high-density-repair-solver/functions/getHighDensityRepairWorkEstimate"
 import { getBoundaryRect } from "./high-density-repair-solver/functions/getBoundaryRect"
 import { getRoutePointLayer } from "./high-density-repair-solver/functions/getRoutePointLayer"
 import { splitRouteIntoLayerSegments } from "./high-density-repair-solver/functions/splitRouteIntoLayerSegments"
@@ -35,9 +36,18 @@ export class HighDensityRepairSolver extends BaseSolver {
   private showBoundryViolationMarkers: boolean
   public repairedRoutes: HdRoute[] = []
   public repairWasAccepted = true
+  public repairWasSkippedForComplexity = false
+  public estimatedRepairWork = 0
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
+    if (
+      params.maxEstimatedRepairWork !== undefined &&
+      (!Number.isFinite(params.maxEstimatedRepairWork) ||
+        params.maxEstimatedRepairWork < 0)
+    ) {
+      throw new Error("maxEstimatedRepairWork must be a non-negative number")
+    }
     this.showBoundryViolationMarkers =
       params.showBoundryViolationMarkers ?? false
   }
@@ -53,6 +63,8 @@ export class HighDensityRepairSolver extends BaseSolver {
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
       repairWasAccepted: this.repairWasAccepted,
+      repairWasSkippedForComplexity: this.repairWasSkippedForComplexity,
+      estimatedRepairWork: this.estimatedRepairWork,
     }
   }
 
@@ -84,6 +96,8 @@ export class HighDensityRepairSolver extends BaseSolver {
       currentFrame: this.currentFrameIndex,
       title: this.frames[this.currentFrameIndex]?.title,
       repairWasAccepted: this.repairWasAccepted,
+      repairWasSkippedForComplexity: this.repairWasSkippedForComplexity,
+      estimatedRepairWork: this.estimatedRepairWork,
     }
 
     if (this.currentFrameIndex >= this.frames.length - 1) {
@@ -105,6 +119,8 @@ export class HighDensityRepairSolver extends BaseSolver {
       frameCount: this.frames.length,
       traceViolationCount,
       repairWasAccepted: this.repairWasAccepted,
+      repairWasSkippedForComplexity: this.repairWasSkippedForComplexity,
+      estimatedRepairWork: this.estimatedRepairWork,
     }
   }
 
@@ -113,6 +129,27 @@ export class HighDensityRepairSolver extends BaseSolver {
   }
 
   private buildFrames() {
+    const workEstimate = getHighDensityRepairWorkEstimate({
+      sample: this.params.sample,
+      margin: this.params.margin,
+    })
+    this.estimatedRepairWork = workEstimate.estimatedRepairWork
+
+    if (
+      this.params.maxEstimatedRepairWork !== undefined &&
+      this.estimatedRepairWork > this.params.maxEstimatedRepairWork
+    ) {
+      this.repairWasSkippedForComplexity = true
+      this.repairedRoutes = cloneRoutes(this.params.sample?.nodeHdRoutes ?? [])
+      this.frames = [
+        {
+          title: "HighDensityRepair02 Skipped Over Work Budget",
+          routes: cloneRoutes(this.repairedRoutes),
+        },
+      ]
+      return
+    }
+
     const result = buildRepairFrames(
       this.params.sample,
       this.params.margin,
