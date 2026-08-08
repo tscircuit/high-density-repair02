@@ -46,3 +46,36 @@ test("counts repairable boundary geometry without running the solver", (): void 
     totalViolationCount: 1,
   })
 })
+
+test("counts violations against fixed neighboring routes", (): void => {
+  expect(
+    getHighDensityRepairViolationCounts({
+      nodeWithPortPoints: undefined,
+      nodeHdRoutes: [
+        {
+          connectionName: "signal-a",
+          route: [
+            { x: -1, y: 0, z: 0 },
+            { x: 1, y: 0, z: 0 },
+          ],
+          traceThickness: 0.1,
+        },
+      ],
+      fixedHdRoutes: [
+        {
+          connectionName: "signal-b",
+          route: [
+            { x: 0, y: -1, z: 0 },
+            { x: 0, y: 1, z: 0 },
+          ],
+          traceThickness: 0.1,
+        },
+      ],
+      margin: 0.2,
+    }),
+  ).toEqual({
+    boundaryViolationCount: 0,
+    traceViolationCount: 1,
+    totalViolationCount: 1,
+  })
+})
