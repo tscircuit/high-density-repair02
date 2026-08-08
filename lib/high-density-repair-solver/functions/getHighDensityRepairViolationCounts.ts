@@ -41,10 +41,12 @@ export const getHighDensityRepairTraceViolationSummary = ({
   nodeHdRoutes,
   routeIndexesToCheck,
   includeViaViaViolations = false,
+  minimumClearance = TRACE_CLEARANCE_REGRESSION_MAX,
 }: {
   nodeHdRoutes: HdRoute[]
   routeIndexesToCheck?: number[]
   includeViaViaViolations?: boolean
+  minimumClearance?: number
 }): HighDensityRepairTraceViolationSummary => {
   const movedRouteIndexes = new Set(
     routeIndexesToCheck ?? nodeHdRoutes.map((_, routeIndex) => routeIndex),
@@ -52,7 +54,7 @@ export const getHighDensityRepairTraceViolationSummary = ({
   const traceViolations = findClearanceConflicts(
     nodeHdRoutes,
     movedRouteIndexes,
-    TRACE_CLEARANCE_REGRESSION_MAX,
+    minimumClearance,
   ).filter(
     (conflict) =>
       (includeViaViaViolations ||

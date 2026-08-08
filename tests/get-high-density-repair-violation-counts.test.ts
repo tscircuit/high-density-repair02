@@ -174,4 +174,14 @@ test("identifies the conflicting route pairs for transactional guards", (): void
     traceViolationCount: 1,
     routePairKeys: ["0:top:1:top"],
   })
+  expect(
+    getHighDensityRepairTraceViolationSummary({
+      nodeHdRoutes: routes,
+      routeIndexesToCheck: [0],
+      minimumClearance: 0,
+    }),
+  ).toEqual({
+    traceViolationCount: 0,
+    routePairKeys: [],
+  })
 })
