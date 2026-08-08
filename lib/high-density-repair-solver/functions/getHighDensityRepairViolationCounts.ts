@@ -36,10 +36,14 @@ export const getHighDensityRepairViolationCounts = ({
   nodeWithPortPoints,
   nodeHdRoutes,
   margin = 0.4,
+  routeIndexesToCheck,
+  includeViaViaViolations = false,
 }: {
   nodeWithPortPoints: DatasetSample["nodeWithPortPoints"]
   nodeHdRoutes: HdRoute[]
   margin?: number
+  routeIndexesToCheck?: number[]
+  includeViaViaViolations?: boolean
 }): HighDensityRepairViolationCounts => {
   const boundary = getBoundaryRect(nodeWithPortPoints)
   const boundaryViolationCount = boundary
@@ -47,7 +51,7 @@ export const getHighDensityRepairViolationCounts = ({
         .length
     : 0
   const movedRouteIndexes = new Set(
-    nodeHdRoutes.map((_, routeIndex) => routeIndex),
+    routeIndexesToCheck ?? nodeHdRoutes.map((_, routeIndex) => routeIndex),
   )
   const traceViolationCount = findClearanceConflicts(
     nodeHdRoutes,
@@ -55,7 +59,8 @@ export const getHighDensityRepairViolationCounts = ({
     TRACE_CLEARANCE_REGRESSION_MAX,
   ).filter(
     (conflict) =>
-      !(conflict.layers[0] === "via" && conflict.layers[1] === "via") &&
+      (includeViaViaViolations ||
+        !(conflict.layers[0] === "via" && conflict.layers[1] === "via")) &&
       !areRoutesSameNet(
         nodeHdRoutes[conflict.routeIndexes[0]],
         nodeHdRoutes[conflict.routeIndexes[1]],

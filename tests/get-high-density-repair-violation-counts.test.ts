@@ -46,3 +46,87 @@ test("counts repairable boundary geometry without running the solver", (): void 
     totalViolationCount: 1,
   })
 })
+
+test("limits trace violations to conflicts involving selected routes", (): void => {
+  const routes = [
+    {
+      connectionName: "selected",
+      route: [
+        { x: -1, y: 0, z: 0 },
+        { x: 1, y: 0, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+    {
+      connectionName: "near-selected",
+      route: [
+        { x: -1, y: 0.1, z: 0 },
+        { x: 1, y: 0.1, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+    {
+      connectionName: "far-away",
+      route: [
+        { x: -1, y: 1, z: 0 },
+        { x: 1, y: 1, z: 0 },
+      ],
+      traceThickness: 0.1,
+      vias: [],
+    },
+  ]
+
+  expect(
+    getHighDensityRepairViolationCounts({
+      nodeWithPortPoints: undefined,
+      nodeHdRoutes: routes,
+      margin: 0.2,
+      routeIndexesToCheck: [2],
+    }).traceViolationCount,
+  ).toBe(0)
+  expect(
+    getHighDensityRepairViolationCounts({
+      nodeWithPortPoints: undefined,
+      nodeHdRoutes: routes,
+      margin: 0.2,
+      routeIndexesToCheck: [0],
+    }).traceViolationCount,
+  ).toBe(1)
+})
+
+test("optionally includes via-to-via violations", (): void => {
+  const routes = [
+    {
+      connectionName: "first-via",
+      route: [],
+      traceThickness: 0.1,
+      vias: [{ x: 0, y: 0, diameter: 0.3 }],
+      viaDiameter: 0.3,
+    },
+    {
+      connectionName: "second-via",
+      route: [],
+      traceThickness: 0.1,
+      vias: [{ x: 0.2, y: 0, diameter: 0.3 }],
+      viaDiameter: 0.3,
+    },
+  ]
+
+  expect(
+    getHighDensityRepairViolationCounts({
+      nodeWithPortPoints: undefined,
+      nodeHdRoutes: routes,
+      margin: 0.2,
+    }).traceViolationCount,
+  ).toBe(0)
+  expect(
+    getHighDensityRepairViolationCounts({
+      nodeWithPortPoints: undefined,
+      nodeHdRoutes: routes,
+      margin: 0.2,
+      includeViaViaViolations: true,
+    }).traceViolationCount,
+  ).toBe(1)
+})
