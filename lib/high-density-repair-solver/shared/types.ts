@@ -127,6 +127,7 @@ export type BuildRepairFramesResult = {
   boundary: BoundaryRect | null
   baseRoutes: HdRoute[]
   repairedRoutes: HdRoute[]
+  repairWasAccepted: boolean
   frames: VisualizationFrame[]
   margin: number
 }

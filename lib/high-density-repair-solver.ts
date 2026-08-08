@@ -34,6 +34,7 @@ export class HighDensityRepairSolver extends BaseSolver {
   private currentFrameIndex = 0
   private showBoundryViolationMarkers: boolean
   public repairedRoutes: HdRoute[] = []
+  public repairWasAccepted = true
 
   constructor(public readonly params: HighDensityRepairSolverParams = {}) {
     super()
@@ -51,6 +52,7 @@ export class HighDensityRepairSolver extends BaseSolver {
       margin: this.params.margin ?? 0.4,
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
+      repairWasAccepted: this.repairWasAccepted,
     }
   }
 
@@ -81,6 +83,7 @@ export class HighDensityRepairSolver extends BaseSolver {
       frames: this.frames.length,
       currentFrame: this.currentFrameIndex,
       title: this.frames[this.currentFrameIndex]?.title,
+      repairWasAccepted: this.repairWasAccepted,
     }
 
     if (this.currentFrameIndex >= this.frames.length - 1) {
@@ -101,6 +104,7 @@ export class HighDensityRepairSolver extends BaseSolver {
       repairedRoutes: this.repairedRoutes,
       frameCount: this.frames.length,
       traceViolationCount,
+      repairWasAccepted: this.repairWasAccepted,
     }
   }
 
@@ -116,6 +120,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     )
     this.frames = result.frames
     this.repairedRoutes = result.repairedRoutes
+    this.repairWasAccepted = result.repairWasAccepted
   }
 
   private getCurrentFrame(): VisualizationFrame {
