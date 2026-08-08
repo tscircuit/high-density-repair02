@@ -206,15 +206,13 @@ export const buildRepairFrames = (
   captureProgressFrames = false,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
+  const inputRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
   const baseRoutes = boundary
     ? clampRoutePointsToBoundary(
-        normalizeBoundaryAnchoredRoutes(
-          cloneRoutes(sample?.nodeHdRoutes ?? []),
-          boundary,
-        ),
+        normalizeBoundaryAnchoredRoutes(cloneRoutes(inputRoutes), boundary),
         boundary,
       )
-    : cloneRoutes(sample?.nodeHdRoutes ?? [])
+    : cloneRoutes(inputRoutes)
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
   const repairedRoutes = cloneRoutes(baseRoutes)
 
@@ -320,15 +318,25 @@ export const buildRepairFrames = (
     nodeHdRoutes: baseRoutes,
     margin,
   }).totalViolationCount
+  const inputViolationCount = getHighDensityRepairViolationCounts({
+    nodeWithPortPoints: sample?.nodeWithPortPoints,
+    nodeHdRoutes: inputRoutes,
+    margin,
+  }).totalViolationCount
   const repairedViolationCount = getHighDensityRepairViolationCounts({
     nodeWithPortPoints: sample?.nodeWithPortPoints,
     nodeHdRoutes: repairedRoutes,
     margin,
   }).totalViolationCount
-  const repairWasAccepted = repairedViolationCount <= baselineViolationCount
+  const repairWasAccepted =
+    repairedViolationCount < inputViolationCount &&
+    repairedViolationCount <= baselineViolationCount
+  // Normalization prepares a repair attempt; it is not independently accepted
+  // output. The completed repair must improve the caller's input without
+  // making the normalized repair baseline worse.
   const outputRoutes = repairWasAccepted
     ? repairedRoutes
-    : cloneRoutes(baseRoutes)
+    : cloneRoutes(inputRoutes)
 
   frames.push(
     createFinalFrame(

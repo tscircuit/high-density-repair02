@@ -6,7 +6,7 @@ import {
 } from "../../lib"
 import { loadAssetSolverInput } from "../fixtures/visualize-solver"
 
-test("repro: srj24 sample2 cmn_96 accepts a non-improving repair", async () => {
+test("preserves srj24 sample2 cmn_96 when repair does not improve", async () => {
   const { sample, margin = 0.2 } = await loadAssetSolverInput(
     "../../datasets/dataset02/srj24-sample2-cmn96-non-improving-repair.json",
   )
@@ -42,8 +42,8 @@ test("repro: srj24 sample2 cmn_96 accepts a non-improving repair", async () => {
   expect(getViolationCount(inputRoutes)).toBe(453)
   expect(getViolationCount(output.repairedRoutes)).toBe(453)
   expect(getViolationCount(inputRoutes, fixedHdRoutes)).toBe(453)
-  expect(getViolationCount(output.repairedRoutes, fixedHdRoutes)).toBe(458)
-  expect(output.repairWasAccepted).toBe(true)
-  expect(output.repairedRoutes).not.toEqual(inputRoutes)
+  expect(getViolationCount(output.repairedRoutes, fixedHdRoutes)).toBe(453)
+  expect(output.repairWasAccepted).toBe(false)
+  expect(output.repairedRoutes).toEqual(inputRoutes)
   await expect(solver.visualize()).toMatchGraphicsSvg(import.meta.path)
 })
