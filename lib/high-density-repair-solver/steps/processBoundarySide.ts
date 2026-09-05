@@ -101,6 +101,7 @@ export const processBoundarySide = ({
     if (lockedTwoPointRoutes.has(routeIndex)) continue
 
     const route = repairedRoutes[routeIndex]
+    if (route.connectedPadSides?.includes(side)) continue
     const isTwoPointRoute = (route.route?.length ?? 0) === 2
     if (isTwoPointRoute && !hasObstacle && !allowTwoPointWithoutObstacle) {
       continue

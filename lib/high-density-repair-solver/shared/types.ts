@@ -12,6 +12,8 @@ export type HdRoute = {
   capacityMeshNodeId?: string
   connectionName?: string
   rootConnectionName?: string
+  /** Cell sides where a terminal enters a connected pad, resolved by the caller. */
+  connectedPadSides?: BoundarySide[]
   route?: RoutePoint[]
   traceThickness?: number
   vias?: Array<{ x: number; y: number; diameter?: number }>

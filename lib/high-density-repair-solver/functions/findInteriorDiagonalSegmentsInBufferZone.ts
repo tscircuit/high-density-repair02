@@ -175,6 +175,7 @@ export const findInteriorDiagonalSegmentsInBufferZone = (
       const startSides = getBoundarySides(start, boundary)
       const endSides = getBoundarySides(end, boundary)
       const touchedSides = BOUNDARY_SIDES.filter((side) => {
+        if (route.connectedPadSides?.includes(side)) return false
         const overlapLength = getSegmentOverlapLengthWithRect(
           start,
           end,

@@ -73,6 +73,12 @@ const nudgeInteriorPointsInsideBoundary = ({
     const maxYInteriorNudge = Math.max(boundary.height / 2 - EPSILON, 0)
     const xNudge = Math.min(rawNudge, maxXInteriorNudge)
     const yNudge = Math.min(rawNudge, maxYInteriorNudge)
+    // The pad is legal copper for this route, not a cell-clearance obstacle.
+    const sides = route.connectedPadSides ?? []
+    const minX = boundary.minX + (sides.includes("left") ? 0 : xNudge)
+    const maxX = boundary.maxX - (sides.includes("right") ? 0 : xNudge)
+    const minY = boundary.minY + (sides.includes("bottom") ? 0 : yNudge)
+    const maxY = boundary.maxY - (sides.includes("top") ? 0 : yNudge)
     const candidateRoute = cloneRoute(route)
     const candidatePoints = candidateRoute.route ?? []
     let changed = false
@@ -85,14 +91,8 @@ const nudgeInteriorPointsInsideBoundary = ({
       const point = candidatePoints[pointIndex]
       if (!point) continue
 
-      const nextX = Math.min(
-        Math.max(point.x, boundary.minX + xNudge),
-        boundary.maxX - xNudge,
-      )
-      const nextY = Math.min(
-        Math.max(point.y, boundary.minY + yNudge),
-        boundary.maxY - yNudge,
-      )
+      const nextX = Math.min(Math.max(point.x, minX), maxX)
+      const nextY = Math.min(Math.max(point.y, minY), maxY)
 
       if (
         Math.abs(nextX - point.x) > EPSILON ||
