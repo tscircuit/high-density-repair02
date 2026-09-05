@@ -9,9 +9,15 @@ test("visual repro: BGA36 connected-pad approach after boundary repair", async (
   const input = await loadAssetSolverInput(
     "../repros/assets/bga36-connected-pad-boundary.json",
   )
+  // The autorouter resolves this terminal-to-pad side using its connMap.
+  input.sample!.nodeHdRoutes![0]!.connectedPadSides = ["bottom"]
   const solver = new HighDensityRepairSolver(input)
   solver.solve()
 
   expect(solver.solved).toBe(true)
+  const points = solver.getOutput().repairedRoutes[0]!.route!
+  for (let i = 1; i < points.length; i++) {
+    expect(points[i]!.y).toBeLessThanOrEqual(points[i - 1]!.y)
+  }
   await expect(solver.visualize()).toMatchGraphicsSvg(import.meta.path)
 })
