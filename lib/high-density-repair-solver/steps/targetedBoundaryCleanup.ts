@@ -1,3 +1,4 @@
+import type { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { cloneRoute } from "../functions/cloneRoute"
 import { dedupeRoutePoints } from "../functions/dedupeRoutePoints"
 import {
@@ -88,11 +89,13 @@ export const targetedBoundaryCleanup = ({
   boundary,
   margin,
   geometryCache,
+  fixedCopperGuard,
 }: {
   routes: HdRoute[]
   boundary: BoundaryRect
   margin: number
   geometryCache: RouteGeometryCache
+  fixedCopperGuard?: FixedCopperClearanceGuard
 }): { movesAccepted: number } => {
   const initialViolations = findInteriorDiagonalSegmentsInBufferZone(
     routes,
@@ -137,6 +140,11 @@ export const targetedBoundaryCleanup = ({
 
     const candidateRoutes = routes.slice()
     candidateRoutes[routeIndex] = dedupedRoute
+
+    if (
+      fixedCopperGuard &&
+      !fixedCopperGuard.allows(routes, candidateRoutes, [routeIndex])
+    ) return false
 
     const afterViolationCount = countRouteViolations(
       candidateRoutes[routeIndex],

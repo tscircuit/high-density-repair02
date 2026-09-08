@@ -115,6 +115,8 @@ export type DatasetSample = {
     portPoints?: PortPoint[]
   }
   nodeHdRoutes?: HdRoute[]
+  /** Immutable copper near the node, with canonical root-net names. */
+  fixedHdRoutes?: HdRoute[]
   adjacentObstacles?: Obstacle[]
 }
 
