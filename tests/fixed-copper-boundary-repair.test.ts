@@ -27,7 +27,10 @@ test("boundary repair preserves clearance to immutable foreign copper", () => {
     rootConnectionName: "fixed",
     traceThickness: 0.1,
     viaDiameter: 0.3,
-    route: [{ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }],
+    route: [
+      { x: 0, y: 0, z: 0 },
+      { x: 0, y: 0, z: 1 },
+    ],
     vias: [{ x: 0, y: 0 }],
   }
   const input = structuredClone([route, fixed])
@@ -52,9 +55,15 @@ test("boundary repair preserves clearance to immutable foreign copper", () => {
   let distance = Infinity
   for (let index = 1; index < points.length; index++) {
     if (points[index - 1].z !== points[index].z) continue
-    distance = Math.min(distance, segmentDistance(
-      points[index - 1], points[index], { x: 0, y: 0 }, { x: 0, y: 0 },
-    ))
+    distance = Math.min(
+      distance,
+      segmentDistance(
+        points[index - 1],
+        points[index],
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+      ),
+    )
   }
   expect(distance - 0.15 - 0.05).toBeGreaterThanOrEqual(0.1 - 1e-6)
   // A legal move away from the left boundary is still accepted.

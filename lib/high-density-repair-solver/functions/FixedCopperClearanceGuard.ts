@@ -32,9 +32,13 @@ const getCopper = (route: HdRoute): Copper[] => {
       const start = points[index - 1]
       const end = points[index]
       if (
-        start.x !== via.x || start.y !== via.y ||
-        end.x !== via.x || end.y !== via.y || start.z === end.z
-      ) continue
+        start.x !== via.x ||
+        start.y !== via.y ||
+        end.x !== via.x ||
+        end.y !== via.y ||
+        start.z === end.z
+      )
+        continue
       minZ = Math.min(minZ, start.z ?? 0, end.z ?? 0)
       maxZ = Math.max(maxZ, start.z ?? 0, end.z ?? 0)
     }
@@ -58,7 +62,8 @@ const clearanceToCopper = (geometry: Copper[], obstacle: Copper): number => {
     clearance = Math.min(
       clearance,
       segmentDistance(copper.start, copper.end, obstacle.start, obstacle.end) -
-        copper.radius - obstacle.radius,
+        copper.radius -
+        obstacle.radius,
     )
   }
   return clearance
@@ -100,7 +105,8 @@ export class FixedCopperClearanceGuard {
         if (
           names.has(fixed.route.connectionName) ||
           names.has(fixed.route.rootConnectionName)
-        ) continue
+        )
+          continue
         for (const obstacle of fixed.copper) {
           const next = clearanceToCopper(afterCopper, obstacle)
           if (next >= this.minimumClearance - EPSILON) continue

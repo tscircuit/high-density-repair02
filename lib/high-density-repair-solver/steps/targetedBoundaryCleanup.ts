@@ -144,7 +144,8 @@ export const targetedBoundaryCleanup = ({
     if (
       fixedCopperGuard &&
       !fixedCopperGuard.allows(routes, candidateRoutes, [routeIndex])
-    ) return false
+    )
+      return false
 
     const afterViolationCount = countRouteViolations(
       candidateRoutes[routeIndex],

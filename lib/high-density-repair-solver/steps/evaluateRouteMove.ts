@@ -398,7 +398,11 @@ export const evaluateRouteMove = ({
   if (
     !rejected &&
     fixedCopperGuard &&
-    !fixedCopperGuard.allows(currentRoutes, candidateRoutes, candidateRouteIndexes)
+    !fixedCopperGuard.allows(
+      currentRoutes,
+      candidateRoutes,
+      candidateRouteIndexes,
+    )
   ) {
     rejected = true
     rejectionReason = "fixed-copper-clearance"
