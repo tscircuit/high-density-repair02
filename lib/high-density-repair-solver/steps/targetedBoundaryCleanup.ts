@@ -7,6 +7,7 @@ import {
 } from "../functions/findClearanceConflicts"
 import { findInteriorDiagonalSegmentsInBufferZone } from "../functions/findInteriorDiagonalSegmentsInBufferZone"
 import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
+import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
 import { isPointNearSide } from "../functions/isPointNearSide"
 import { EPSILON, TRACE_CLEARANCE_REGRESSION_MAX } from "../shared/constants"
 import type {
@@ -219,7 +220,11 @@ export const targetedBoundaryCleanup = ({
       const candidateRoute = cloneRoute(currentRoute)
       const candidatePoints = candidateRoute.route ?? []
       let changed = false
-      for (const pointIndex of pointIndexes) {
+      for (const pointIndex of getRoutePushableIndexes(
+        currentRoute,
+        [],
+        pointIndexes,
+      )) {
         const point = candidatePoints[pointIndex]
         if (!point) continue
         candidatePoints[pointIndex] = nudgedPointInwardFromSide(
