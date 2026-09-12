@@ -1,3 +1,4 @@
+import type { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { createMovedRoute } from "../functions/createMovedRoute"
 import { findBoundaryTouchRegressions } from "../functions/findBoundaryTouchRegressions"
 import {
@@ -30,6 +31,7 @@ export const evaluateRouteMove = ({
   margin,
   moveAmount,
   geometryCache,
+  fixedCopperGuard,
 }: {
   currentRoutes: HdRoute[]
   routeIndex: number
@@ -39,6 +41,7 @@ export const evaluateRouteMove = ({
   margin: number
   moveAmount: number
   geometryCache: RouteGeometryCache
+  fixedCopperGuard?: FixedCopperClearanceGuard
 }): EvaluateRouteMoveResult | null => {
   const route = currentRoutes[routeIndex]
   const isTwoPointRoute = (route.route?.length ?? 0) === 2
@@ -390,6 +393,19 @@ export const evaluateRouteMove = ({
   ) {
     rejected = true
     rejectionReason = "side-regression"
+  }
+
+  if (
+    !rejected &&
+    fixedCopperGuard &&
+    !fixedCopperGuard.allows(
+      currentRoutes,
+      candidateRoutes,
+      candidateRouteIndexes,
+    )
+  ) {
+    rejected = true
+    rejectionReason = "fixed-copper-clearance"
   }
 
   return {

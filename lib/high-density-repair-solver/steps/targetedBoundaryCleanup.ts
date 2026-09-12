@@ -1,3 +1,4 @@
+import type { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { cloneRoute } from "../functions/cloneRoute"
 import { dedupeRoutePoints } from "../functions/dedupeRoutePoints"
 import {
@@ -6,6 +7,7 @@ import {
 } from "../functions/findClearanceConflicts"
 import { findInteriorDiagonalSegmentsInBufferZone } from "../functions/findInteriorDiagonalSegmentsInBufferZone"
 import { findTraceClearanceRegressions } from "../functions/findTraceClearanceRegressions"
+import { getRoutePushableIndexes } from "../functions/getRoutePushableIndexes"
 import { isPointNearSide } from "../functions/isPointNearSide"
 import { EPSILON, TRACE_CLEARANCE_REGRESSION_MAX } from "../shared/constants"
 import type {
@@ -88,11 +90,13 @@ export const targetedBoundaryCleanup = ({
   boundary,
   margin,
   geometryCache,
+  fixedCopperGuard,
 }: {
   routes: HdRoute[]
   boundary: BoundaryRect
   margin: number
   geometryCache: RouteGeometryCache
+  fixedCopperGuard?: FixedCopperClearanceGuard
 }): { movesAccepted: number } => {
   const initialViolations = findInteriorDiagonalSegmentsInBufferZone(
     routes,
@@ -137,6 +141,12 @@ export const targetedBoundaryCleanup = ({
 
     const candidateRoutes = routes.slice()
     candidateRoutes[routeIndex] = dedupedRoute
+
+    if (
+      fixedCopperGuard &&
+      !fixedCopperGuard.allows(routes, candidateRoutes, [routeIndex])
+    )
+      return false
 
     const afterViolationCount = countRouteViolations(
       candidateRoutes[routeIndex],
@@ -210,7 +220,11 @@ export const targetedBoundaryCleanup = ({
       const candidateRoute = cloneRoute(currentRoute)
       const candidatePoints = candidateRoute.route ?? []
       let changed = false
-      for (const pointIndex of pointIndexes) {
+      for (const pointIndex of getRoutePushableIndexes(
+        currentRoute,
+        [],
+        pointIndexes,
+      )) {
         const point = candidatePoints[pointIndex]
         if (!point) continue
         candidatePoints[pointIndex] = nudgedPointInwardFromSide(

@@ -1,3 +1,4 @@
+import { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { clampRoutePointsToBoundary } from "../functions/clampRoutePointsToBoundary"
 import { cloneRoute } from "../functions/cloneRoute"
 import { cloneRoutes } from "../functions/cloneRoutes"
@@ -58,10 +59,12 @@ const nudgeInteriorPointsInsideBoundary = ({
   routes,
   boundary,
   clearanceMargin,
+  fixedCopperGuard,
 }: {
   routes: BuildRepairFramesResult["repairedRoutes"]
   boundary: NonNullable<BuildRepairFramesResult["boundary"]>
   clearanceMargin: number
+  fixedCopperGuard: FixedCopperClearanceGuard
 }) => {
   for (let routeIndex = 0; routeIndex < routes.length; routeIndex += 1) {
     const route = routes[routeIndex] as HdRoute
@@ -73,6 +76,12 @@ const nudgeInteriorPointsInsideBoundary = ({
     const maxYInteriorNudge = Math.max(boundary.height / 2 - EPSILON, 0)
     const xNudge = Math.min(rawNudge, maxXInteriorNudge)
     const yNudge = Math.min(rawNudge, maxYInteriorNudge)
+    // The pad is legal copper for this route, not a cell-clearance obstacle.
+    const sides = route.connectedPadSides ?? []
+    const minX = boundary.minX + (sides.includes("left") ? 0 : xNudge)
+    const maxX = boundary.maxX - (sides.includes("right") ? 0 : xNudge)
+    const minY = boundary.minY + (sides.includes("bottom") ? 0 : yNudge)
+    const maxY = boundary.maxY - (sides.includes("top") ? 0 : yNudge)
     const candidateRoute = cloneRoute(route)
     const candidatePoints = candidateRoute.route ?? []
     let changed = false
@@ -85,14 +94,8 @@ const nudgeInteriorPointsInsideBoundary = ({
       const point = candidatePoints[pointIndex]
       if (!point) continue
 
-      const nextX = Math.min(
-        Math.max(point.x, boundary.minX + xNudge),
-        boundary.maxX - xNudge,
-      )
-      const nextY = Math.min(
-        Math.max(point.y, boundary.minY + yNudge),
-        boundary.maxY - yNudge,
-      )
+      const nextX = Math.min(Math.max(point.x, minX), maxX)
+      const nextY = Math.min(Math.max(point.y, minY), maxY)
 
       if (
         Math.abs(nextX - point.x) > EPSILON ||
@@ -135,7 +138,8 @@ const nudgeInteriorPointsInsideBoundary = ({
     if (
       introducesNewTouches ||
       introducesNewDrcClearanceConflicts ||
-      introducesTraceClearanceRegressions
+      introducesTraceClearanceRegressions ||
+      !fixedCopperGuard.allows(routes, candidateRoutes, [routeIndex])
     ) {
       continue
     }
@@ -205,7 +209,13 @@ export const buildRepairFrames = (
   captureProgressFrames = false,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
-  const baseRoutes = boundary
+  const inputRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
+  const margin = Math.max(requestedMargin ?? 0.4, 0.05)
+  const fixedCopperGuard = new FixedCopperClearanceGuard(
+    sample?.fixedHdRoutes ?? [],
+    Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
+  )
+  const normalizedRoutes = boundary
     ? clampRoutePointsToBoundary(
         normalizeBoundaryAnchoredRoutes(
           cloneRoutes(sample?.nodeHdRoutes ?? []),
@@ -214,7 +224,13 @@ export const buildRepairFrames = (
         boundary,
       )
     : cloneRoutes(sample?.nodeHdRoutes ?? [])
-  const margin = Math.max(requestedMargin ?? 0.4, 0.05)
+  const baseRoutes = fixedCopperGuard.allows(
+    inputRoutes,
+    normalizedRoutes,
+    inputRoutes.keys(),
+  )
+    ? normalizedRoutes
+    : inputRoutes
   const repairedRoutes = cloneRoutes(baseRoutes)
 
   if (!boundary) {
@@ -261,6 +277,7 @@ export const buildRepairFrames = (
         captureProgressFrames,
         lockedTwoPointRoutes,
         geometryCache,
+        fixedCopperGuard,
         // On retry passes, 2-point routes without an adjacent obstacle can
         // still be bridged inward when they cause boundary violations.
         allowTwoPointWithoutObstacle: pass >= 1,
@@ -298,6 +315,7 @@ export const buildRepairFrames = (
     boundary,
     margin,
     geometryCache,
+    fixedCopperGuard,
   })
   const traceViolationsAfterCleanup = countTraceViolations(
     cleanupCandidateRoutes,
@@ -311,6 +329,7 @@ export const buildRepairFrames = (
     routes: repairedRoutes,
     boundary,
     clearanceMargin: margin,
+    fixedCopperGuard,
   })
 
   frames.push(

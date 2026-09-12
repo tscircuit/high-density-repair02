@@ -1,3 +1,4 @@
+import type { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { cloneRoute } from "../functions/cloneRoute"
 import { cloneRoutes } from "../functions/cloneRoutes"
 import { createCandidateFrame } from "../functions/createCandidateFrame"
@@ -56,6 +57,7 @@ export const processBoundarySide = ({
   captureProgressFrames,
   lockedTwoPointRoutes,
   geometryCache,
+  fixedCopperGuard,
   allowTwoPointWithoutObstacle = false,
 }: {
   side: BoundarySide
@@ -67,6 +69,7 @@ export const processBoundarySide = ({
   captureProgressFrames: boolean
   lockedTwoPointRoutes: Set<number>
   geometryCache: RouteGeometryCache
+  fixedCopperGuard?: FixedCopperClearanceGuard
   allowTwoPointWithoutObstacle?: boolean
 }): { movesAccepted: number } => {
   const { hasObstacle, moveAmount } = getMoveAmountForSide(
@@ -101,6 +104,7 @@ export const processBoundarySide = ({
     if (lockedTwoPointRoutes.has(routeIndex)) continue
 
     const route = repairedRoutes[routeIndex]
+    if (route.connectedPadSides?.includes(side)) continue
     const isTwoPointRoute = (route.route?.length ?? 0) === 2
     if (isTwoPointRoute && !hasObstacle && !allowTwoPointWithoutObstacle) {
       continue
@@ -114,6 +118,7 @@ export const processBoundarySide = ({
       margin,
       moveAmount,
       geometryCache,
+      fixedCopperGuard,
     })
     if (!evaluation) continue
 
@@ -136,6 +141,7 @@ export const processBoundarySide = ({
           margin,
           moveAmount,
           geometryCache,
+          fixedCopperGuard,
         })
 
         if (tangentialEvaluation && !tangentialEvaluation.rejected) {

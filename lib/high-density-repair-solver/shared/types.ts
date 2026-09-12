@@ -12,6 +12,8 @@ export type HdRoute = {
   capacityMeshNodeId?: string
   connectionName?: string
   rootConnectionName?: string
+  /** Cell sides where a terminal enters a connected pad, resolved by the caller. */
+  connectedPadSides?: BoundarySide[]
   route?: RoutePoint[]
   traceThickness?: number
   vias?: Array<{ x: number; y: number; diameter?: number }>
@@ -113,6 +115,8 @@ export type DatasetSample = {
     portPoints?: PortPoint[]
   }
   nodeHdRoutes?: HdRoute[]
+  /** Immutable copper near the node, with canonical root-net names. */
+  fixedHdRoutes?: HdRoute[]
   adjacentObstacles?: Obstacle[]
 }
 
