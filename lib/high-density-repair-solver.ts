@@ -28,6 +28,7 @@ export type {
 
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
+  private clearanceRepairStats: Record<string, number> = {}
   private currentFrameIndex = 0
   private showBoundryViolationMarkers: boolean
   public repairedRoutes: HdRoute[] = []
@@ -43,6 +44,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
     const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
+      ...this.clearanceRepairStats,
       boundryViolationCount,
       traceViolationCount,
       margin: this.params.margin ?? 0.4,
@@ -72,6 +74,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
     const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
+      ...this.clearanceRepairStats,
       boundryViolationCount,
       traceViolationCount,
       margin: this.params.margin ?? 0.4,
@@ -94,6 +97,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const traceViolationCount = this.getCurrentTraceViolationCount()
 
     return {
+      ...this.clearanceRepairStats,
       margin: this.params.margin ?? 0.4,
       repairedRoutes: this.repairedRoutes,
       frameCount: this.frames.length,
@@ -111,6 +115,7 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.params.margin,
       this.params.captureProgressFrames ?? false,
     )
+    this.clearanceRepairStats = result.clearanceRepairStats ?? {}
     this.frames = result.frames
     this.repairedRoutes = result.repairedRoutes
   }

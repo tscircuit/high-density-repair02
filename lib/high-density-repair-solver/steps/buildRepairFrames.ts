@@ -1,3 +1,5 @@
+import { synchronizeRouteVias } from "../functions/synchronizeRouteVias"
+import { repairNodeClearance } from "../functions/repairNodeClearance"
 import { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { clampRoutePointsToBoundary } from "../functions/clampRoutePointsToBoundary"
 import { cloneRoute } from "../functions/cloneRoute"
@@ -209,21 +211,19 @@ export const buildRepairFrames = (
   captureProgressFrames = false,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
-  const inputRoutes = cloneRoutes(sample?.nodeHdRoutes ?? [])
+  const inputRoutes = (sample?.nodeHdRoutes ?? []).map(synchronizeRouteVias)
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
   const fixedCopperGuard = new FixedCopperClearanceGuard(
     sample?.fixedHdRoutes ?? [],
     Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
+    sample?.clearanceObstacles ?? sample?.adjacentObstacles,
   )
   const normalizedRoutes = boundary
     ? clampRoutePointsToBoundary(
-        normalizeBoundaryAnchoredRoutes(
-          cloneRoutes(sample?.nodeHdRoutes ?? []),
-          boundary,
-        ),
+        normalizeBoundaryAnchoredRoutes(cloneRoutes(inputRoutes), boundary),
         boundary,
       )
-    : cloneRoutes(sample?.nodeHdRoutes ?? [])
+    : cloneRoutes(inputRoutes)
   const baseRoutes = fixedCopperGuard.allows(
     inputRoutes,
     normalizedRoutes,
@@ -332,6 +332,16 @@ export const buildRepairFrames = (
     fixedCopperGuard,
   })
 
+  const clearanceRepair = repairNodeClearance({
+    routes: repairedRoutes,
+    boundary,
+    fixedCopperGuard,
+    adjacentObstacles: sample?.adjacentObstacles,
+    clearanceObstacles: sample?.clearanceObstacles,
+    boundaryMargin: margin,
+  })
+  repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)
+
   frames.push(
     createFinalFrame(
       cloneRoutes(repairedRoutes),
@@ -346,5 +356,10 @@ export const buildRepairFrames = (
     repairedRoutes,
     frames,
     margin,
+    clearanceRepairStats: {
+      nodeClearanceInitialConflictCount: clearanceRepair.initialConflictCount,
+      nodeClearanceFinalConflictCount: clearanceRepair.finalConflictCount,
+      nodeClearanceCandidateCount: clearanceRepair.candidateCount,
+    },
   }
 }
