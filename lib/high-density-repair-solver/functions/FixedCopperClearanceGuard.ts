@@ -36,10 +36,9 @@ const getCopper = (route: HdRoute): Copper[] => {
       const start = points[index - 1]
       const end = points[index]
       if (
-        start.x !== via.x ||
-        start.y !== via.y ||
-        end.x !== via.x ||
-        end.y !== via.y ||
+        // Repair01 can round cached via records to 0.001 mm.
+        Math.hypot(start.x - via.x, start.y - via.y) > 0.001 ||
+        Math.hypot(end.x - via.x, end.y - via.y) > 0.001 ||
         start.z === end.z
       )
         continue
