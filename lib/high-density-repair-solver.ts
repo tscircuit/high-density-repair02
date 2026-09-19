@@ -28,6 +28,10 @@ export type {
 
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
+  private readonly traceViolationCounts = new WeakMap<
+    VisualizationFrame,
+    number
+  >()
   private clearanceRepairStats: Record<string, number> = {}
   private currentFrameIndex = 0
   private showBoundryViolationMarkers: boolean
@@ -114,6 +118,7 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.params.sample,
       this.params.margin,
       this.params.captureProgressFrames ?? false,
+      this.params.repairBoundaryDiagonals ?? true,
     )
     this.clearanceRepairStats = result.clearanceRepairStats ?? {}
     this.frames = result.frames
@@ -164,9 +169,11 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   private getCurrentTraceViolationCount(): number {
     const frame = this.getCurrentFrame()
+    const cached = this.traceViolationCounts.get(frame)
+    if (cached !== undefined) return cached
     const routes = frame.routes
     const movedRouteIndexes = new Set(routes.map((_, routeIndex) => routeIndex))
-    return findClearanceConflicts(
+    const count = findClearanceConflicts(
       routes,
       movedRouteIndexes,
       TRACE_CLEARANCE_REGRESSION_MAX,
@@ -178,6 +185,8 @@ export class HighDensityRepairSolver extends BaseSolver {
           routes[conflict.routeIndexes[1]],
         ),
     ).length
+    this.traceViolationCounts.set(frame, count)
+    return count
   }
 
   override visualize(): GraphicsObject {

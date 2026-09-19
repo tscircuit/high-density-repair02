@@ -125,6 +125,8 @@ export type DatasetSample = {
 }
 
 export interface HighDensityRepairSolverParams {
+  /** Also push boundary diagonals inward even when copper clearance passes. */
+  repairBoundaryDiagonals?: boolean
   sample?: DatasetSample
   margin?: number
   captureProgressFrames?: boolean

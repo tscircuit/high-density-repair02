@@ -72,75 +72,107 @@ const evaluate = (
   routes: HdRoute[],
   clearance: number,
   obstacles: Obstacle[],
+  fixedRoutes: HdRoute[] = [],
+  previous?: { evaluation: Evaluation; changedRoute: number },
+  geometryCache = new WeakMap<HdRoute, Copper[]>(),
 ): Evaluation => {
-  const geometries = routes.map(collectCopper)
-  const conflicts: Conflict[] = []
-  let score = 0
+  const allRoutes = [...routes, ...fixedRoutes]
+  const geometries = allRoutes.map((route) => {
+    let copper = geometryCache.get(route)
+    if (!copper) {
+      copper = collectCopper(route)
+      geometryCache.set(route, copper)
+    }
+    return copper
+  })
+  const conflicts: Conflict[] = previous
+    ? previous.evaluation.conflicts.filter(
+        (conflict) =>
+          conflict.firstRoute !== previous.changedRoute &&
+          conflict.secondRoute !== previous.changedRoute,
+      )
+    : []
+  let score = conflicts.reduce(
+    (sum, conflict) => sum + conflict.penetration ** 2,
+    0,
+  )
   for (let firstRoute = 0; firstRoute < routes.length; firstRoute++) {
     const a = routes[firstRoute]!
     const names = new Set(
       [a.connectionName, a.rootConnectionName].filter(Boolean),
     )
-    const vias = geometries[firstRoute]!.filter((part) => part.via)
-    for (let firstIndex = 0; firstIndex < vias.length; firstIndex++) {
-      const first = vias[firstIndex]!
-      for (
-        let secondIndex = firstIndex + 1;
-        secondIndex < vias.length;
-        secondIndex++
-      ) {
-        const second = vias[secondIndex]!
-        if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
-        const distance = Math.hypot(
-          first.start.x - second.start.x,
-          first.start.y - second.start.y,
-        )
-        if (distance === 0) continue
-        const penetration = clearance + first.radius + second.radius - distance
-        if (penetration <= EPSILON) continue
-        conflicts.push({
-          key: `${firstRoute}:vias:${firstIndex}:${secondIndex}`,
-          firstRoute,
-          secondRoute: firstRoute,
-          first,
-          second,
-          penetration,
-        })
-        score += penetration ** 2
-      }
-    }
-    for (const [obstacleIndex, obstacle] of obstacles.entries()) {
-      if (obstacle.connectedTo?.some((name) => names.has(name))) continue
-      let worst: Conflict | undefined
-      for (const copper of geometries[firstRoute]!) {
-        if (
-          obstacle.zLayers &&
-          !obstacle.zLayers.some((z) => z >= copper.minZ && z <= copper.maxZ)
-        )
-          continue
-        const penetration = clearance - distanceToObstacle(copper, obstacle)
-        if (penetration <= EPSILON || penetration <= (worst?.penetration ?? 0))
-          continue
-        worst = {
-          key: `${firstRoute}:pad:${obstacleIndex}`,
-          firstRoute,
-          secondRoute: -1,
-          first: copper,
-          second: copper,
-          penetration,
+    if (!previous || firstRoute === previous.changedRoute) {
+      const vias = geometries[firstRoute]!.filter((part) => part.via)
+      for (let firstIndex = 0; firstIndex < vias.length; firstIndex++) {
+        const first = vias[firstIndex]!
+        for (
+          let secondIndex = firstIndex + 1;
+          secondIndex < vias.length;
+          secondIndex++
+        ) {
+          const second = vias[secondIndex]!
+          if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
+          const distance = Math.hypot(
+            first.start.x - second.start.x,
+            first.start.y - second.start.y,
+          )
+          if (distance === 0) continue
+          const penetration =
+            clearance + first.radius + second.radius - distance
+          if (penetration <= EPSILON) continue
+          conflicts.push({
+            key: `${firstRoute}:vias:${firstIndex}:${secondIndex}`,
+            firstRoute,
+            secondRoute: firstRoute,
+            first,
+            second,
+            penetration,
+          })
+          score += penetration ** 2
         }
       }
-      if (worst) {
-        conflicts.push(worst)
-        score += worst.penetration ** 2
+      for (const [obstacleIndex, obstacle] of obstacles.entries()) {
+        if (obstacle.connectedTo?.some((name) => names.has(name))) continue
+        let worst: Conflict | undefined
+        for (const copper of geometries[firstRoute]!) {
+          if (
+            obstacle.zLayers &&
+            !obstacle.zLayers.some((z) => z >= copper.minZ && z <= copper.maxZ)
+          )
+            continue
+          const penetration = clearance - distanceToObstacle(copper, obstacle)
+          if (
+            penetration <= EPSILON ||
+            penetration <= (worst?.penetration ?? 0)
+          )
+            continue
+          worst = {
+            key: `${firstRoute}:pad:${obstacleIndex}`,
+            firstRoute,
+            secondRoute: -1,
+            first: copper,
+            second: copper,
+            penetration,
+          }
+        }
+        if (worst) {
+          conflicts.push(worst)
+          score += worst.penetration ** 2
+        }
       }
     }
     for (
       let secondRoute = firstRoute + 1;
-      secondRoute < routes.length;
+      secondRoute < allRoutes.length;
       secondRoute++
     ) {
-      const b = routes[secondRoute]!
+      if (
+        previous &&
+        firstRoute !== previous.changedRoute &&
+        secondRoute !== previous.changedRoute
+      )
+        continue
+      const b = allRoutes[secondRoute]!
       const sameNet =
         names.has(b.connectionName) || names.has(b.rootConnectionName)
       // Keep the worst contact of each copper type. Splitting a segment must
@@ -287,17 +319,22 @@ const moveCopper = (
   const candidate = cloneRoute(route)
   const points = candidate.route ?? []
   const originalPoints = route.route ?? []
-  const moving = new Set(copper.indexes)
-  // All copies of a via position move together, including both layer ends.
+  const fixed = (index: number) => index === 0 || index === points.length - 1
+  const moving = new Set<number>()
+  // Preserve node ports while moving the free end of a port-adjacent segment.
+  // Moving only a new dogleg leaves the original interior corner in collision.
   for (const index of copper.indexes) {
+    if (fixed(index)) continue
     const anchor = originalPoints[index]!
     originalPoints.forEach((point, otherIndex) => {
       if (point.x === anchor.x && point.y === anchor.y) moving.add(otherIndex)
     })
   }
-  if (moving.has(0) || moving.has(points.length - 1)) {
+  if ([...moving].some(fixed)) return undefined
+  if (copper.via && copper.indexes.some(fixed)) return undefined
+  if (moving.size === 0) {
     if (copper.via || copper.indexes.length !== 2) return undefined
-    // A fixed-ended segment can bend locally without moving either port.
+    // A segment between two fixed ports needs a bend instead.
     const [startIndex, endIndex] = copper.indexes as [number, number]
     const start = points[startIndex]!
     const end = points[endIndex]!
@@ -314,7 +351,7 @@ const moveCopper = (
     }
     for (const via of candidate.vias ?? []) {
       if (
-        copper.indexes.some(
+        [...moving].some(
           (index) =>
             originalPoints[index]!.x === via.x &&
             originalPoints[index]!.y === via.y,
@@ -343,15 +380,17 @@ const moveCopper = (
 /** Repair native node copper directly; never crop, stitch, or reconstruct a board. */
 export const repairNodeClearance = ({
   routes,
+  fixedRoutes = [],
   boundary,
   fixedCopperGuard,
   adjacentObstacles = [],
   clearanceObstacles = adjacentObstacles,
   clearance = 0.1,
   boundaryMargin = 0.2,
-  maxCandidates = 256,
+  maxCandidates,
 }: {
   routes: HdRoute[]
+  fixedRoutes?: HdRoute[]
   boundary: BoundaryRect
   fixedCopperGuard: FixedCopperClearanceGuard
   adjacentObstacles?: Obstacle[]
@@ -361,14 +400,29 @@ export const repairNodeClearance = ({
   maxCandidates?: number
 }): NodeClearanceRepairResult => {
   let current = routes
-  let evaluation = evaluate(current, clearance, clearanceObstacles)
+  const geometryCache = new WeakMap<HdRoute, Copper[]>()
+  let evaluation = evaluate(
+    current,
+    clearance,
+    clearanceObstacles,
+    fixedRoutes,
+    undefined,
+    geometryCache,
+  )
+  // Give each initial conflict a full sweep of both copper parts, three
+  // distances and eight directions, with room for a second improving move.
+  const candidateLimit =
+    maxCandidates ?? Math.max(256, evaluation.conflicts.length * 96)
   const result: NodeClearanceRepairResult = {
     routes,
     initialConflictCount: evaluation.conflicts.length,
     finalConflictCount: evaluation.conflicts.length,
     candidateCount: 0,
   }
-  while (evaluation.conflicts.length && result.candidateCount < maxCandidates) {
+  while (
+    evaluation.conflicts.length &&
+    result.candidateCount < candidateLimit
+  ) {
     let improved = false
     const currentPenetrations = new Map(
       evaluation.conflicts.map((conflict) => [
@@ -381,7 +435,7 @@ export const repairNodeClearance = ({
         [conflict.firstRoute, conflict.first],
         [conflict.secondRoute, conflict.second],
       ] as const) {
-        if (routeIndex < 0) continue
+        if (routeIndex < 0 || routeIndex >= current.length) continue
         const before = current[routeIndex]!
         const names = new Set(
           [before.connectionName, before.rootConnectionName].filter(Boolean),
@@ -420,7 +474,7 @@ export const repairNodeClearance = ({
             [Math.SQRT1_2, -Math.SQRT1_2],
             [-Math.SQRT1_2, -Math.SQRT1_2],
           ]) {
-            if (result.candidateCount >= maxCandidates) break
+            if (result.candidateCount >= candidateLimit) break
             result.candidateCount++
             const moved = moveCopper(
               before,
@@ -440,7 +494,14 @@ export const repairNodeClearance = ({
               continue
             const candidate = [...current]
             candidate[routeIndex] = moved
-            const next = evaluate(candidate, clearance, clearanceObstacles)
+            const next = evaluate(
+              candidate,
+              clearance,
+              clearanceObstacles,
+              fixedRoutes,
+              { evaluation, changedRoute: routeIndex },
+              geometryCache,
+            )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
               next.score >= evaluation.score - EPSILON ** 2
@@ -454,7 +515,9 @@ export const repairNodeClearance = ({
               )
             )
               continue
-            if (!fixedCopperGuard.allows(current, candidate, [routeIndex]))
+            if (
+              !fixedCopperGuard.allows(current, candidate, [routeIndex], false)
+            )
               continue
             const afterCopper = collectCopper(moved)
             if (
@@ -480,11 +543,11 @@ export const repairNodeClearance = ({
             improved = true
             break
           }
-          if (improved || result.candidateCount >= maxCandidates) break
+          if (improved || result.candidateCount >= candidateLimit) break
         }
-        if (improved || result.candidateCount >= maxCandidates) break
+        if (improved || result.candidateCount >= candidateLimit) break
       }
-      if (improved || result.candidateCount >= maxCandidates) break
+      if (improved || result.candidateCount >= candidateLimit) break
     }
     if (!improved) break
   }

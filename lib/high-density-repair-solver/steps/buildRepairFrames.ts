@@ -209,6 +209,7 @@ export const buildRepairFrames = (
   sample: DatasetSample | undefined,
   requestedMargin: number | undefined,
   captureProgressFrames = false,
+  repairBoundaryDiagonals = true,
 ): BuildRepairFramesResult => {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const inputRoutes = (sample?.nodeHdRoutes ?? []).map(synchronizeRouteVias)
@@ -218,19 +219,18 @@ export const buildRepairFrames = (
     Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
     sample?.clearanceObstacles ?? sample?.adjacentObstacles,
   )
-  const normalizedRoutes = boundary
-    ? clampRoutePointsToBoundary(
-        normalizeBoundaryAnchoredRoutes(cloneRoutes(inputRoutes), boundary),
-        boundary,
-      )
-    : cloneRoutes(inputRoutes)
-  const baseRoutes = fixedCopperGuard.allows(
-    inputRoutes,
-    normalizedRoutes,
-    inputRoutes.keys(),
-  )
-    ? normalizedRoutes
-    : inputRoutes
+  const normalizedRoutes =
+    boundary && repairBoundaryDiagonals
+      ? clampRoutePointsToBoundary(
+          normalizeBoundaryAnchoredRoutes(cloneRoutes(inputRoutes), boundary),
+          boundary,
+        )
+      : cloneRoutes(inputRoutes)
+  const baseRoutes =
+    repairBoundaryDiagonals &&
+    fixedCopperGuard.allows(inputRoutes, normalizedRoutes, inputRoutes.keys())
+      ? normalizedRoutes
+      : inputRoutes
   const repairedRoutes = cloneRoutes(baseRoutes)
 
   if (!boundary) {
@@ -251,88 +251,91 @@ export const buildRepairFrames = (
   const frames: VisualizationFrame[] = captureProgressFrames
     ? [createInitialFrame(cloneRoutes(repairedRoutes), margin)]
     : []
-  const geometryCache: RouteGeometryCache = new WeakMap()
+  if (repairBoundaryDiagonals) {
+    const geometryCache: RouteGeometryCache = new WeakMap()
 
-  let lastViolationCount = countBoundaryViolations(
-    repairedRoutes,
-    boundary,
-    margin,
-  )
-
-  for (let pass = 0; pass < MAX_REPAIR_PASSES; pass += 1) {
-    // Reset locked routes each pass: after a bridge move, a route is no
-    // longer 2-point anyway, but on later passes we want the option to
-    // re-shift it to eliminate remaining boundary violations.
-    const lockedTwoPointRoutes = new Set<number>()
-    let totalMovesAccepted = 0
-
-    for (const side of getSidesForPass(pass)) {
-      const { movesAccepted } = processBoundarySide({
-        side,
-        sample,
-        boundary,
-        frames,
-        margin,
-        repairedRoutes,
-        captureProgressFrames,
-        lockedTwoPointRoutes,
-        geometryCache,
-        fixedCopperGuard,
-        // On retry passes, 2-point routes without an adjacent obstacle can
-        // still be bridged inward when they cause boundary violations.
-        allowTwoPointWithoutObstacle: pass >= 1,
-      })
-      totalMovesAccepted += movesAccepted
-    }
-
-    const currentViolationCount = countBoundaryViolations(
+    let lastViolationCount = countBoundaryViolations(
       repairedRoutes,
       boundary,
       margin,
     )
 
-    // Stop early once we can't make progress anymore.
-    if (totalMovesAccepted === 0) break
-    if (currentViolationCount === 0) break
-    if (currentViolationCount >= lastViolationCount) break
-    lastViolationCount = currentViolationCount
-  }
+    for (let pass = 0; pass < MAX_REPAIR_PASSES; pass += 1) {
+      // Reset locked routes each pass: after a bridge move, a route is no
+      // longer 2-point anyway, but on later passes we want the option to
+      // re-shift it to eliminate remaining boundary violations.
+      const lockedTwoPointRoutes = new Set<number>()
+      let totalMovesAccepted = 0
 
-  // After the standard side-pass loop, run a targeted cleanup that nudges
-  // points sitting FLUSH along a boundary side off the edge far enough
-  // to stop being counted as a boundary violation. This handles the (very
-  // common) case where the main repair pushes routes by `moveAmount` but
-  // leaves points exactly on the boundary, because their endpoints were
-  // clamped there. The cleanup itself iterates internally per route, so
-  // we only need to call it once.
-  const cleanupCandidateRoutes = cloneRoutes(repairedRoutes)
-  const traceViolationsBeforeCleanup = countTraceViolations(
-    repairedRoutes,
-    geometryCache,
-  )
-  targetedBoundaryCleanup({
-    routes: cleanupCandidateRoutes,
-    boundary,
-    margin,
-    geometryCache,
-    fixedCopperGuard,
-  })
-  const traceViolationsAfterCleanup = countTraceViolations(
-    cleanupCandidateRoutes,
-    geometryCache,
-  )
-  if (traceViolationsAfterCleanup <= traceViolationsBeforeCleanup) {
-    repairedRoutes.splice(0, repairedRoutes.length, ...cleanupCandidateRoutes)
-  }
+      for (const side of getSidesForPass(pass)) {
+        const { movesAccepted } = processBoundarySide({
+          side,
+          sample,
+          boundary,
+          frames,
+          margin,
+          repairedRoutes,
+          captureProgressFrames,
+          lockedTwoPointRoutes,
+          geometryCache,
+          fixedCopperGuard,
+          // On retry passes, 2-point routes without an adjacent obstacle can
+          // still be bridged inward when they cause boundary violations.
+          allowTwoPointWithoutObstacle: pass >= 1,
+        })
+        totalMovesAccepted += movesAccepted
+      }
 
-  nudgeInteriorPointsInsideBoundary({
-    routes: repairedRoutes,
-    boundary,
-    clearanceMargin: margin,
-    fixedCopperGuard,
-  })
+      const currentViolationCount = countBoundaryViolations(
+        repairedRoutes,
+        boundary,
+        margin,
+      )
+
+      // Stop early once we can't make progress anymore.
+      if (totalMovesAccepted === 0) break
+      if (currentViolationCount === 0) break
+      if (currentViolationCount >= lastViolationCount) break
+      lastViolationCount = currentViolationCount
+    }
+
+    // After the standard side-pass loop, run a targeted cleanup that nudges
+    // points sitting FLUSH along a boundary side off the edge far enough
+    // to stop being counted as a boundary violation. This handles the (very
+    // common) case where the main repair pushes routes by `moveAmount` but
+    // leaves points exactly on the boundary, because their endpoints were
+    // clamped there. The cleanup itself iterates internally per route, so
+    // we only need to call it once.
+    const cleanupCandidateRoutes = cloneRoutes(repairedRoutes)
+    const traceViolationsBeforeCleanup = countTraceViolations(
+      repairedRoutes,
+      geometryCache,
+    )
+    targetedBoundaryCleanup({
+      routes: cleanupCandidateRoutes,
+      boundary,
+      margin,
+      geometryCache,
+      fixedCopperGuard,
+    })
+    const traceViolationsAfterCleanup = countTraceViolations(
+      cleanupCandidateRoutes,
+      geometryCache,
+    )
+    if (traceViolationsAfterCleanup <= traceViolationsBeforeCleanup) {
+      repairedRoutes.splice(0, repairedRoutes.length, ...cleanupCandidateRoutes)
+    }
+
+    nudgeInteriorPointsInsideBoundary({
+      routes: repairedRoutes,
+      boundary,
+      clearanceMargin: margin,
+      fixedCopperGuard,
+    })
+  }
 
   const clearanceRepair = repairNodeClearance({
+    fixedRoutes: sample?.fixedHdRoutes,
     routes: repairedRoutes,
     boundary,
     fixedCopperGuard,

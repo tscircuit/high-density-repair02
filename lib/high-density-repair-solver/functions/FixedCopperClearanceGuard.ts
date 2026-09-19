@@ -92,10 +92,12 @@ export class FixedCopperClearanceGuard {
     currentRoutes: HdRoute[],
     candidateRoutes: HdRoute[],
     indexes: Iterable<number>,
+    checkNodeClearance = true,
   ): boolean {
     // Boundary cleanup must not create copper conflicts for the later pass
     // to undo, including via spacing that the legacy trace-only guard misses.
     if (
+      checkNodeClearance &&
       hasNodeClearanceRegression(
         currentRoutes,
         candidateRoutes,
