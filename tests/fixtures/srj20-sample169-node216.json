@@ -1,0 +1,441 @@
+{
+  "nodeWithPortPoints": {
+    "capacityMeshNodeId": "topology_merge_216",
+    "center": {
+      "x": 1.6,
+      "y": 0
+    },
+    "width": 0.44000000000000017,
+    "height": 0.44000000000000006,
+    "portPoints": [
+      {
+        "x": 1.6,
+        "y": -0.22,
+        "z": 1,
+        "connectionName": "bga_conn_016",
+        "portPointId": "ce566_pp0_z1::1",
+        "nextPortPointId": "ce571_pp0_z1::1"
+      },
+      {
+        "x": 1.8200000000000003,
+        "y": 0,
+        "z": 1,
+        "connectionName": "bga_conn_016",
+        "portPointId": "ce571_pp0_z1::1",
+        "prevPortPointId": "ce566_pp0_z1::1"
+      },
+      {
+        "x": 1.8200000000000003,
+        "y": 0,
+        "z": 0,
+        "connectionName": "bga_conn_016",
+        "portPointId": "ce570_pp0_z0::0",
+        "nextPortPointId": "ce568_pp0_z0::0"
+      },
+      {
+        "x": 1.6,
+        "y": 0.22000000000000003,
+        "z": 0,
+        "connectionName": "bga_conn_016",
+        "portPointId": "ce568_pp0_z0::0",
+        "prevPortPointId": "ce570_pp0_z0::0"
+      },
+      {
+        "x": 1.38,
+        "y": 0,
+        "z": 1,
+        "connectionName": "bga_conn_007",
+        "portPointId": "ce529_pp0_z1::1",
+        "nextPortPointId": "ce564_pp0_z0::0"
+      },
+      {
+        "x": 1.6,
+        "y": -0.22,
+        "z": 0,
+        "connectionName": "bga_conn_007",
+        "portPointId": "ce564_pp0_z0::0",
+        "prevPortPointId": "ce529_pp0_z1::1"
+      }
+    ]
+  },
+  "nodeHdRoutes": [
+    {
+      "capacityMeshNodeId": "topology_merge_216",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 1.6,
+          "y": -0.22,
+          "z": 1
+        },
+        {
+          "x": 1.795,
+          "y": -0.195,
+          "z": 1
+        },
+        {
+          "x": 1.8199990000000004,
+          "y": 0.203,
+          "z": 1
+        },
+        {
+          "x": 1.8199990000000004,
+          "y": 0.203,
+          "z": 1
+        },
+        {
+          "x": 1.8199990000000004,
+          "y": 0.203,
+          "z": 1
+        },
+        {
+          "x": 1.669,
+          "y": 0.069,
+          "z": 1
+        },
+        {
+          "x": 1.669,
+          "y": 0.069,
+          "z": 0
+        },
+        {
+          "x": 1.6,
+          "y": 0.22,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.15,
+      "vias": [
+        {
+          "x": 1.669,
+          "y": 0.069,
+          "diameter": 0.3
+        }
+      ],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_216",
+      "connectionName": "bga_conn_007",
+      "rootConnectionName": "bga_conn_007",
+      "route": [
+        {
+          "x": 1.38,
+          "y": 0,
+          "z": 1
+        },
+        {
+          "x": 1.405,
+          "y": -0.195,
+          "z": 1
+        },
+        {
+          "x": 1.405,
+          "y": -0.195,
+          "z": 1
+        },
+        {
+          "x": 1.405,
+          "y": -0.195,
+          "z": 1
+        },
+        {
+          "x": 1.405,
+          "y": -0.195,
+          "z": 1
+        },
+        {
+          "x": 1.531,
+          "y": -0.069,
+          "z": 1
+        },
+        {
+          "x": 1.531,
+          "y": -0.069,
+          "z": 0
+        },
+        {
+          "x": 1.6,
+          "y": -0.22,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.15,
+      "vias": [
+        {
+          "x": 1.531,
+          "y": -0.069,
+          "diameter": 0.3
+        }
+      ],
+      "viaDiameter": 0.3
+    }
+  ],
+  "fixedHdRoutes": [
+    {
+      "capacityMeshNodeId": "topology_merge_237",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 2.18,
+          "y": 0,
+          "z": 0
+        },
+        {
+          "x": 1.82,
+          "y": 0,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_238",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 1.82,
+          "y": 0,
+          "z": 1
+        },
+        {
+          "x": 2.18,
+          "y": 0,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "obstacle-bga_component-pcb_smtpad_bga_pin_020-1-1.2--0.4",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 1.2,
+          "y": -0.4,
+          "z": 1
+        },
+        {
+          "x": 1.38,
+          "y": -0.4,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_215",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 1.38,
+          "y": -0.4,
+          "z": 1
+        },
+        {
+          "x": 1.6,
+          "y": -0.22,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_214",
+      "connectionName": "bga_conn_007",
+      "rootConnectionName": "bga_conn_007",
+      "route": [
+        {
+          "x": 1.6,
+          "y": -0.22,
+          "z": 0
+        },
+        {
+          "x": 1.6,
+          "y": -0.58,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "obstacle-bga_component-pcb_smtpad_bga_pin_014-1-1.2-0.4",
+      "connectionName": "bga_conn_007",
+      "rootConnectionName": "bga_conn_007",
+      "route": [
+        {
+          "x": 1.2,
+          "y": 0.4,
+          "z": 1
+        },
+        {
+          "x": 1.2,
+          "y": 0.22,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_197",
+      "connectionName": "bga_conn_007",
+      "rootConnectionName": "bga_conn_007",
+      "route": [
+        {
+          "x": 1.2,
+          "y": 0.22,
+          "z": 1
+        },
+        {
+          "x": 1.38,
+          "y": 0,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "topology_merge_217",
+      "connectionName": "bga_conn_016",
+      "rootConnectionName": "bga_conn_016",
+      "route": [
+        {
+          "x": 1.6,
+          "y": 0.22,
+          "z": 0
+        },
+        {
+          "x": 1.6,
+          "y": 0.58,
+          "z": 0
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "obstacle-bga_component-pcb_smtpad_bga_pin_013-1-2-0.4",
+      "connectionName": "bga_conn_003",
+      "rootConnectionName": "bga_conn_003",
+      "route": [
+        {
+          "x": 2,
+          "y": 0.4,
+          "z": 1
+        },
+        {
+          "x": 2.18,
+          "y": 0.4,
+          "z": 1
+        }
+      ],
+      "traceThickness": 0.12,
+      "vias": [],
+      "viaDiameter": 0.3
+    }
+  ],
+  "clearanceObstacles": [
+    {
+      "type": "rect",
+      "center": {
+        "x": 2,
+        "y": 0.4
+      },
+      "width": 0.36,
+      "height": 0.36,
+      "zLayers": [1],
+      "connectedTo": ["bga_pin_013", "pcb_port_bga_pin_013", "bga_net_013"]
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 1.2,
+        "y": 0.4
+      },
+      "width": 0.36,
+      "height": 0.36,
+      "zLayers": [1],
+      "connectedTo": ["bga_pin_014", "pcb_port_bga_pin_014", "bga_net_014"]
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 2,
+        "y": -0.4
+      },
+      "width": 0.36,
+      "height": 0.36,
+      "zLayers": [1],
+      "connectedTo": ["bga_pin_019", "pcb_port_bga_pin_019", "bga_net_019"]
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 1.2,
+        "y": -0.4
+      },
+      "width": 0.36,
+      "height": 0.36,
+      "zLayers": [1],
+      "connectedTo": ["bga_pin_020", "pcb_port_bga_pin_020", "bga_net_020"]
+    }
+  ],
+  "adjacentObstacles": [
+    {
+      "type": "rect",
+      "center": {
+        "x": 2,
+        "y": -0.4
+      },
+      "width": 0.36,
+      "height": 0.36
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 1.2,
+        "y": -0.4
+      },
+      "width": 0.36,
+      "height": 0.36
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 1.2,
+        "y": 0.4
+      },
+      "width": 0.36,
+      "height": 0.36
+    },
+    {
+      "type": "rect",
+      "center": {
+        "x": 2,
+        "y": 0.4
+      },
+      "width": 0.36,
+      "height": 0.36
+    }
+  ]
+}

@@ -28,6 +28,11 @@ export type {
 
 export class HighDensityRepairSolver extends BaseSolver {
   private frames: VisualizationFrame[] = []
+  private readonly traceViolationCounts = new WeakMap<
+    VisualizationFrame,
+    number
+  >()
+  private clearanceRepairStats: Record<string, number> = {}
   private currentFrameIndex = 0
   private showBoundryViolationMarkers: boolean
   public repairedRoutes: HdRoute[] = []
@@ -43,6 +48,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
     const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
+      ...this.clearanceRepairStats,
       boundryViolationCount,
       traceViolationCount,
       margin: this.params.margin ?? 0.4,
@@ -72,6 +78,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const boundryViolationCount = this.getCurrentBoundryViolationCount()
     const traceViolationCount = this.getCurrentTraceViolationCount()
     this.stats = {
+      ...this.clearanceRepairStats,
       boundryViolationCount,
       traceViolationCount,
       margin: this.params.margin ?? 0.4,
@@ -94,6 +101,7 @@ export class HighDensityRepairSolver extends BaseSolver {
     const traceViolationCount = this.getCurrentTraceViolationCount()
 
     return {
+      ...this.clearanceRepairStats,
       margin: this.params.margin ?? 0.4,
       repairedRoutes: this.repairedRoutes,
       frameCount: this.frames.length,
@@ -110,7 +118,9 @@ export class HighDensityRepairSolver extends BaseSolver {
       this.params.sample,
       this.params.margin,
       this.params.captureProgressFrames ?? false,
+      this.params.repairBoundaryDiagonals ?? true,
     )
+    this.clearanceRepairStats = result.clearanceRepairStats ?? {}
     this.frames = result.frames
     this.repairedRoutes = result.repairedRoutes
   }
@@ -159,9 +169,11 @@ export class HighDensityRepairSolver extends BaseSolver {
 
   private getCurrentTraceViolationCount(): number {
     const frame = this.getCurrentFrame()
+    const cached = this.traceViolationCounts.get(frame)
+    if (cached !== undefined) return cached
     const routes = frame.routes
     const movedRouteIndexes = new Set(routes.map((_, routeIndex) => routeIndex))
-    return findClearanceConflicts(
+    const count = findClearanceConflicts(
       routes,
       movedRouteIndexes,
       TRACE_CLEARANCE_REGRESSION_MAX,
@@ -173,6 +185,8 @@ export class HighDensityRepairSolver extends BaseSolver {
           routes[conflict.routeIndexes[1]],
         ),
     ).length
+    this.traceViolationCounts.set(frame, count)
+    return count
   }
 
   override visualize(): GraphicsObject {

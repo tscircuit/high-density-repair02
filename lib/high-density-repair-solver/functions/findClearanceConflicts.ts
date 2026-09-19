@@ -12,6 +12,23 @@ import { getRouteGeometry } from "./getRouteGeometry"
 import { segmentDistance } from "./segmentDistance"
 import { segmentsShareEndpoint } from "./segmentsShareEndpoint"
 
+const pointIndexKeys = new WeakMap<number[], string>()
+const segmentPointIndexes = new WeakMap<Segment, number[]>()
+const viaPointIndexes = new WeakMap<RouteVia, number[]>()
+
+const getPointIndexKey = (indexes: number[]): string => {
+  let key = pointIndexKeys.get(indexes)
+  if (key === undefined) {
+    key =
+      indexes.length > 2 &&
+      indexes[indexes.length - 1]! - indexes[0]! === indexes.length - 1
+        ? `${indexes[0]}..${indexes[indexes.length - 1]}`
+        : indexes.join(",")
+    pointIndexKeys.set(indexes, key)
+  }
+  return key
+}
+
 type ConflictLayer = "top" | "bottom" | "via"
 
 export type ClearanceConflict = {
@@ -29,15 +46,15 @@ const conflictKey = (
   secondRoutePointIndexes: number[],
 ) =>
   firstRouteIndex < secondRouteIndex
-    ? `${firstRouteIndex}:${firstLayer}:${firstRoutePointIndexes.join(",")}:${secondRouteIndex}:${secondLayer}:${secondRoutePointIndexes.join(",")}`
-    : `${secondRouteIndex}:${secondLayer}:${secondRoutePointIndexes.join(",")}:${firstRouteIndex}:${firstLayer}:${firstRoutePointIndexes.join(",")}`
+    ? `${firstRouteIndex}:${firstLayer}:${getPointIndexKey(firstRoutePointIndexes)}:${secondRouteIndex}:${secondLayer}:${getPointIndexKey(secondRoutePointIndexes)}`
+    : `${secondRouteIndex}:${secondLayer}:${getPointIndexKey(secondRoutePointIndexes)}:${firstRouteIndex}:${firstLayer}:${getPointIndexKey(firstRoutePointIndexes)}`
 
 export const getClearanceConflictKey = ({
   routeIndexes,
   layers,
   routePointIndexes,
 }: ClearanceConflict) =>
-  `${routeIndexes[0]}:${layers[0]}:${routePointIndexes[0].join(",")}:${routeIndexes[1]}:${layers[1]}:${routePointIndexes[1].join(",")}`
+  `${routeIndexes[0]}:${layers[0]}:${getPointIndexKey(routePointIndexes[0])}:${routeIndexes[1]}:${layers[1]}:${getPointIndexKey(routePointIndexes[1])}`
 
 const pushConflict = (
   conflicts: Map<string, ClearanceConflict>,
@@ -57,38 +74,15 @@ const pushConflict = (
     secondRoutePointIndexes,
   )
 
-  const existingConflict = conflicts.get(key)
-  if (existingConflict) {
-    const [firstPointIndexes, secondPointIndexes] =
-      firstRouteIndex < secondRouteIndex
-        ? [firstRoutePointIndexes, secondRoutePointIndexes]
-        : [secondRoutePointIndexes, firstRoutePointIndexes]
-
-    for (const index of firstPointIndexes) {
-      if (!existingConflict.routePointIndexes[0].includes(index)) {
-        existingConflict.routePointIndexes[0].push(index)
-      }
-    }
-
-    for (const index of secondPointIndexes) {
-      if (!existingConflict.routePointIndexes[1].includes(index)) {
-        existingConflict.routePointIndexes[1].push(index)
-      }
-    }
-
-    existingConflict.routePointIndexes[0].sort((a, b) => a - b)
-    existingConflict.routePointIndexes[1].sort((a, b) => a - b)
-    return
-  }
+  // The key already includes both complete, sorted point-index lists.
+  // A duplicate cannot contribute any additional indexes.
+  if (conflicts.has(key)) return
 
   if (firstRouteIndex < secondRouteIndex) {
     conflicts.set(key, {
       routeIndexes: [firstRouteIndex, secondRouteIndex],
       layers: [firstLayer, secondLayer],
-      routePointIndexes: [
-        [...new Set(firstRoutePointIndexes)].sort((a, b) => a - b),
-        [...new Set(secondRoutePointIndexes)].sort((a, b) => a - b),
-      ],
+      routePointIndexes: [firstRoutePointIndexes, secondRoutePointIndexes],
     })
     return
   }
@@ -96,14 +90,13 @@ const pushConflict = (
   conflicts.set(key, {
     routeIndexes: [secondRouteIndex, firstRouteIndex],
     layers: [secondLayer, firstLayer],
-    routePointIndexes: [
-      [...new Set(secondRoutePointIndexes)].sort((a, b) => a - b),
-      [...new Set(firstRoutePointIndexes)].sort((a, b) => a - b),
-    ],
+    routePointIndexes: [secondRoutePointIndexes, firstRoutePointIndexes],
   })
 }
 
 const getSegmentRoutePointIndexes = (segment: Segment) => {
+  const cached = segmentPointIndexes.get(segment)
+  if (cached) return cached
   const pointIndexes: number[] = []
 
   for (
@@ -114,6 +107,7 @@ const getSegmentRoutePointIndexes = (segment: Segment) => {
     pointIndexes.push(pointIndex)
   }
 
+  segmentPointIndexes.set(segment, pointIndexes)
   return pointIndexes
 }
 
@@ -128,6 +122,8 @@ const pointIndexesIntersect = (
 }
 
 const getViaRoutePointIndexes = (route: HdRoute, via: RouteVia) => {
+  const cached = viaPointIndexes.get(via)
+  if (cached) return cached
   const points = route.route ?? []
   const pointIndexes: number[] = []
 
@@ -142,6 +138,7 @@ const getViaRoutePointIndexes = (route: HdRoute, via: RouteVia) => {
     }
   }
 
+  viaPointIndexes.set(via, pointIndexes)
   return pointIndexes
 }
 

@@ -1,5 +1,9 @@
 import { DEFAULT_TRACE_THICKNESS, EPSILON } from "../shared/constants"
-import type { HdRoute, XY } from "../shared/types"
+import type { HdRoute, Obstacle, XY } from "../shared/types"
+import {
+  getRouteObstacleClearance,
+  hasNodeClearanceRegression,
+} from "./repairNodeClearance"
 import { segmentDistance } from "./segmentDistance"
 
 type Copper = {
@@ -32,10 +36,9 @@ const getCopper = (route: HdRoute): Copper[] => {
       const start = points[index - 1]
       const end = points[index]
       if (
-        start.x !== via.x ||
-        start.y !== via.y ||
-        end.x !== via.x ||
-        end.y !== via.y ||
+        // Repair01 can round cached via records to 0.001 mm.
+        Math.hypot(start.x - via.x, start.y - via.y) > 0.001 ||
+        Math.hypot(end.x - via.x, end.y - via.y) > 0.001 ||
         start.z === end.z
       )
         continue
@@ -77,6 +80,7 @@ export class FixedCopperClearanceGuard {
   constructor(
     fixedRoutes: HdRoute[],
     private readonly minimumClearance: number,
+    private readonly obstacles: Obstacle[] = [],
   ) {
     this.fixedCopper = fixedRoutes.map((route) => ({
       route,
@@ -88,8 +92,21 @@ export class FixedCopperClearanceGuard {
     currentRoutes: HdRoute[],
     candidateRoutes: HdRoute[],
     indexes: Iterable<number>,
+    checkNodeClearance = true,
   ): boolean {
-    if (this.fixedCopper.length === 0) return true
+    // Boundary cleanup must not create copper conflicts for the later pass
+    // to undo, including via spacing that the legacy trace-only guard misses.
+    if (
+      checkNodeClearance &&
+      hasNodeClearanceRegression(
+        currentRoutes,
+        candidateRoutes,
+        this.minimumClearance,
+      )
+    )
+      return false
+    if (this.fixedCopper.length === 0 && this.obstacles.length === 0)
+      return true
     for (const index of indexes) {
       const before = currentRoutes[index]
       const after = candidateRoutes[index]
@@ -101,6 +118,15 @@ export class FixedCopperClearanceGuard {
       const names = new Set(
         [before.connectionName, before.rootConnectionName].filter(Boolean),
       )
+      for (const obstacle of this.obstacles) {
+        if (obstacle.connectedTo?.some((name) => names.has(name))) continue
+        const next = getRouteObstacleClearance(after, obstacle)
+        if (next >= this.minimumClearance - EPSILON) continue
+        const previous = getRouteObstacleClearance(before, obstacle)
+        if (next < Math.min(previous, this.minimumClearance) - EPSILON) {
+          return false
+        }
+      }
       for (const fixed of this.fixedCopper) {
         if (
           names.has(fixed.route.connectionName) ||

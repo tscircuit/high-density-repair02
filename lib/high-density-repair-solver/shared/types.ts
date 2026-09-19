@@ -25,6 +25,8 @@ export type Obstacle = {
   center?: XY
   width?: number
   height?: number
+  zLayers?: number[]
+  connectedTo?: string[]
 }
 
 export type BoundarySide = "left" | "right" | "top" | "bottom"
@@ -118,9 +120,13 @@ export type DatasetSample = {
   /** Immutable copper near the node, with canonical root-net names. */
   fixedHdRoutes?: HdRoute[]
   adjacentObstacles?: Obstacle[]
+  /** Physical pad constraints, including route-specific net and layer identity. */
+  clearanceObstacles?: Obstacle[]
 }
 
 export interface HighDensityRepairSolverParams {
+  /** Also push boundary diagonals inward even when copper clearance passes. */
+  repairBoundaryDiagonals?: boolean
   sample?: DatasetSample
   margin?: number
   captureProgressFrames?: boolean
@@ -133,6 +139,7 @@ export type BuildRepairFramesResult = {
   repairedRoutes: HdRoute[]
   frames: VisualizationFrame[]
   margin: number
+  clearanceRepairStats?: Record<string, number>
 }
 
 export type EvaluateRouteMoveResult = {
