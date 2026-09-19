@@ -342,6 +342,8 @@ export const buildRepairFrames = (
     adjacentObstacles: sample?.adjacentObstacles,
     clearanceObstacles: sample?.clearanceObstacles,
     boundaryMargin: margin,
+    traceToPadClearance: sample?.minTraceToPadEdgeClearance,
+    viaToPadClearance: sample?.minViaEdgeToPadEdgeClearance,
   })
   repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)
 

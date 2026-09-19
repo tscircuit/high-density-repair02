@@ -77,6 +77,7 @@ const evaluate = (
   fixedRoutes: HdRoute[] = [],
   previous?: { evaluation: Evaluation; changedRoute: number },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
+  padClearance: { trace?: number; via?: number } = {},
 ): Evaluation => {
   const allRoutes = [...routes, ...fixedRoutes]
   const geometries = allRoutes.map((route) => {
@@ -135,29 +136,37 @@ const evaluate = (
       }
       for (const [obstacleIndex, obstacle] of obstacles.entries()) {
         if (obstacle.connectedTo?.some((name) => names.has(name))) continue
-        let worst: Conflict | undefined
+        const worstByType = new Map<string, Conflict>()
         for (const copper of geometries[firstRoute]!) {
           if (
             obstacle.zLayers &&
             !obstacle.zLayers.some((z) => z >= copper.minZ && z <= copper.maxZ)
           )
             continue
-          const penetration = clearance - distanceToObstacle(copper, obstacle)
+          const requiredClearance =
+            (copper.via ? padClearance.via : padClearance.trace) ?? clearance
+          const penetration = requiredClearance - distanceToObstacle(copper, obstacle)
+          // Keep explicit board via rules independent of trace clearance.
+          // A worse trace contact must not hide a new via-to-pad violation.
+          const partKey =
+            padClearance.trace !== undefined || padClearance.via !== undefined
+              ? copper.via ? `via:${copper.viaIndex}` : `trace:${copper.minZ}`
+              : "copper"
           if (
             penetration <= EPSILON ||
-            penetration <= (worst?.penetration ?? 0)
+            penetration <= (worstByType.get(partKey)?.penetration ?? 0)
           )
             continue
-          worst = {
-            key: `${firstRoute}:pad:${obstacleIndex}`,
+          worstByType.set(partKey, {
+            key: `${firstRoute}:pad:${obstacleIndex}:${partKey}`,
             firstRoute,
             secondRoute: -1,
             first: copper,
             second: copper,
             penetration,
-          }
+          })
         }
-        if (worst) {
+        for (const worst of worstByType.values()) {
           conflicts.push(worst)
           score += worst.penetration ** 2
         }
@@ -396,6 +405,8 @@ export const repairNodeClearance = ({
   adjacentObstacles = [],
   clearanceObstacles = adjacentObstacles,
   clearance = 0.1,
+  traceToPadClearance,
+  viaToPadClearance,
   boundaryMargin = 0.2,
   maxCandidates,
 }: {
@@ -406,9 +417,12 @@ export const repairNodeClearance = ({
   adjacentObstacles?: Obstacle[]
   clearanceObstacles?: Obstacle[]
   clearance?: number
+  traceToPadClearance?: number
+  viaToPadClearance?: number
   boundaryMargin?: number
   maxCandidates?: number
 }): NodeClearanceRepairResult => {
+  const padClearance = { trace: traceToPadClearance, via: viaToPadClearance }
   let current = routes
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
   let evaluation = evaluate(
@@ -418,6 +432,7 @@ export const repairNodeClearance = ({
     fixedRoutes,
     undefined,
     geometryCache,
+    padClearance,
   )
   // Give each initial conflict a full sweep of both copper parts, three
   // distances and eight directions, with room for a second improving move.
@@ -511,6 +526,7 @@ export const repairNodeClearance = ({
               fixedRoutes,
               { evaluation, changedRoute: routeIndex },
               geometryCache,
+              padClearance,
             )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
