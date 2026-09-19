@@ -122,6 +122,9 @@ export type DatasetSample = {
   adjacentObstacles?: Obstacle[]
   /** Physical pad constraints, including route-specific net and layer identity. */
   clearanceObstacles?: Obstacle[]
+  /** Optional board copper-edge rules in millimeters; defaults to 0.1. */
+  minTraceToPadEdgeClearance?: number
+  minViaEdgeToPadEdgeClearance?: number
 }
 
 export interface HighDensityRepairSolverParams {
