@@ -13,6 +13,7 @@ type Copper = {
   maxZ: number
   indexes: number[]
   via: boolean
+  viaIndex?: number
 }
 
 type Conflict = {
@@ -50,7 +51,7 @@ const collectCopper = (route: HdRoute): Copper[] => {
       via: false,
     })
   }
-  for (const via of route.vias ?? []) {
+  for (const [viaIndex, via] of (route.vias ?? []).entries()) {
     const indexes = points.flatMap((point, index) =>
       point.x === via.x && point.y === via.y ? [index] : [],
     )
@@ -63,6 +64,7 @@ const collectCopper = (route: HdRoute): Copper[] => {
       maxZ: layers.length ? Math.max(...layers) : 1,
       indexes,
       via: true,
+      viaIndex,
     })
   }
   return copper
@@ -175,8 +177,10 @@ const evaluate = (
       const b = allRoutes[secondRoute]!
       const sameNet =
         names.has(b.connectionName) || names.has(b.rootConnectionName)
-      // Keep the worst contact of each copper type. Splitting a segment must
-      // not change the objective merely by changing its number of pieces.
+      // Track each via and trace layer independently. A less severe contact
+      // must not hide a new violation at another via or on another layer.
+      // Trace segments still share a key so splitting one does not change
+      // the objective merely by changing its number of pieces.
       const worstByType = new Map<string, Conflict>()
       for (const first of geometries[firstRoute]!) {
         for (const second of geometries[secondRoute]!) {
@@ -204,7 +208,13 @@ const evaluate = (
             required -
             segmentDistance(first.start, first.end, second.start, second.end)
           if (penetration <= EPSILON) continue
-          const key = `${first.via}:${second.via}`
+          const firstKey = first.via
+            ? `via:${first.viaIndex}`
+            : `trace:${first.minZ}`
+          const secondKey = second.via
+            ? `via:${second.viaIndex}`
+            : `trace:${second.minZ}`
+          const key = `${firstKey}:${secondKey}`
           if (penetration <= (worstByType.get(key)?.penetration ?? 0)) continue
           worstByType.set(key, {
             key: `${firstRoute}:${secondRoute}:${key}`,
