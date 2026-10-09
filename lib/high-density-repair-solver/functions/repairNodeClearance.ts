@@ -1,3 +1,4 @@
+import Flatbush from "flatbush"
 import { DEFAULT_TRACE_THICKNESS, EPSILON } from "../shared/constants"
 import type { BoundaryRect, HdRoute, Obstacle, XY } from "../shared/types"
 import { findInteriorDiagonalSegmentsInBufferZone } from "./findInteriorDiagonalSegmentsInBufferZone"
@@ -25,7 +26,25 @@ type Conflict = {
   penetration: number
 }
 
+type OrderedConflict = Conflict & {
+  firstCopperIndex: number
+  secondCopperIndex: number
+}
+
 type Evaluation = { conflicts: Conflict[]; score: number }
+
+type CopperSpatialIndex = {
+  index?: Flatbush
+  maxRadius: number
+}
+
+type CopperSpatialIndexCache = WeakMap<HdRoute, CopperSpatialIndex>
+
+type RouteCandidateContext = {
+  foreignObstacles: Obstacle[]
+  boundaryViolationCount: number
+  obstacleClearances: number[]
+}
 
 export type NodeClearanceRepairResult = {
   routes: HdRoute[]
@@ -70,6 +89,34 @@ const collectCopper = (route: HdRoute): Copper[] => {
   return copper
 }
 
+const getCopperSpatialIndex = (
+  route: HdRoute,
+  copper: Copper[],
+  cache: CopperSpatialIndexCache,
+): CopperSpatialIndex => {
+  const cached = cache.get(route)
+  if (cached) return cached
+
+  const result: CopperSpatialIndex = {
+    maxRadius: Math.max(0, ...copper.map((part) => part.radius)),
+  }
+  if (copper.length > 0) {
+    const index = new Flatbush(copper.length)
+    for (const part of copper) {
+      index.add(
+        Math.min(part.start.x, part.end.x),
+        Math.min(part.start.y, part.end.y),
+        Math.max(part.start.x, part.end.x),
+        Math.max(part.start.y, part.end.y),
+      )
+    }
+    index.finish()
+    result.index = index
+  }
+  cache.set(route, result)
+  return result
+}
+
 const evaluate = (
   routes: HdRoute[],
   clearance: number,
@@ -77,6 +124,7 @@ const evaluate = (
   fixedRoutes: HdRoute[] = [],
   previous?: { evaluation: Evaluation; changedRoute: number },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
+  copperSpatialIndexCache: CopperSpatialIndexCache = new WeakMap(),
 ): Evaluation => {
   const allRoutes = [...routes, ...fixedRoutes]
   const geometries = allRoutes.map((route) => {
@@ -175,15 +223,33 @@ const evaluate = (
       )
         continue
       const b = allRoutes[secondRoute]!
+      const secondCopper = geometries[secondRoute]!
+      const secondCopperSpatialIndex = getCopperSpatialIndex(
+        b,
+        secondCopper,
+        copperSpatialIndexCache,
+      )
       const sameNet =
         names.has(b.connectionName) || names.has(b.rootConnectionName)
       // Track each via and trace layer independently. A less severe contact
       // must not hide a new violation at another via or on another layer.
       // Trace segments still share a key so splitting one does not change
       // the objective merely by changing its number of pieces.
-      const worstByType = new Map<string, Conflict>()
-      for (const first of geometries[firstRoute]!) {
-        for (const second of geometries[secondRoute]!) {
+      const worstByType = new Map<string, OrderedConflict>()
+      for (const [firstCopperIndex, first] of geometries[
+        firstRoute
+      ]!.entries()) {
+        const searchExpansion =
+          clearance + first.radius + secondCopperSpatialIndex.maxRadius
+        const candidateIndexes =
+          secondCopperSpatialIndex.index?.search(
+            Math.min(first.start.x, first.end.x) - searchExpansion,
+            Math.min(first.start.y, first.end.y) - searchExpansion,
+            Math.max(first.start.x, first.end.x) + searchExpansion,
+            Math.max(first.start.y, first.end.y) + searchExpansion,
+          ) ?? []
+        for (const secondCopperIndex of candidateIndexes) {
+          const second = secondCopper[secondCopperIndex]!
           if (sameNet && !(first.via && second.via)) continue
           if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
           if (
@@ -215,7 +281,16 @@ const evaluate = (
             ? `via:${second.viaIndex}`
             : `trace:${second.minZ}`
           const key = `${firstKey}:${secondKey}`
-          if (penetration <= (worstByType.get(key)?.penetration ?? 0)) continue
+          const worst = worstByType.get(key)
+          if (
+            worst &&
+            (penetration < worst.penetration ||
+              (penetration === worst.penetration &&
+                (firstCopperIndex > worst.firstCopperIndex ||
+                  (firstCopperIndex === worst.firstCopperIndex &&
+                    secondCopperIndex >= worst.secondCopperIndex))))
+          )
+            continue
           worstByType.set(key, {
             key: `${firstRoute}:${secondRoute}:${key}`,
             firstRoute,
@@ -223,6 +298,8 @@ const evaluate = (
             first,
             second,
             penetration,
+            firstCopperIndex,
+            secondCopperIndex,
           })
         }
       }
@@ -411,6 +488,11 @@ export const repairNodeClearance = ({
 }): NodeClearanceRepairResult => {
   let current = routes
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
+  const copperSpatialIndexCache: CopperSpatialIndexCache = new WeakMap()
+  const routeCandidateContextCache = new WeakMap<
+    HdRoute,
+    RouteCandidateContext
+  >()
   let evaluation = evaluate(
     current,
     clearance,
@@ -418,6 +500,7 @@ export const repairNodeClearance = ({
     fixedRoutes,
     undefined,
     geometryCache,
+    copperSpatialIndexCache,
   )
   // Give each initial conflict a full sweep of both copper parts, three
   // distances and eight directions, with room for a second improving move.
@@ -447,31 +530,42 @@ export const repairNodeClearance = ({
       ] as const) {
         if (routeIndex < 0 || routeIndex >= current.length) continue
         const before = current[routeIndex]!
-        const names = new Set(
-          [before.connectionName, before.rootConnectionName].filter(Boolean),
-        )
-        const foreignObstacles = clearanceObstacles.filter(
-          (obstacle) => !obstacle.connectedTo?.some((name) => names.has(name)),
-        )
-        const beforeCopper = collectCopper(before)
-        const boundaryViolations = findInteriorDiagonalSegmentsInBufferZone(
-          [before],
-          boundary,
-          boundaryMargin,
-        ).length
-        const obstacleClearances = foreignObstacles.map((obstacle) =>
-          Math.min(
-            ...beforeCopper
-              .filter(
-                (part) =>
-                  !obstacle.zLayers ||
-                  obstacle.zLayers.some(
-                    (z) => z >= part.minZ && z <= part.maxZ,
-                  ),
-              )
-              .map((part) => distanceToObstacle(part, obstacle)),
-          ),
-        )
+        let routeCandidateContext = routeCandidateContextCache.get(before)
+        if (!routeCandidateContext) {
+          const names = new Set(
+            [before.connectionName, before.rootConnectionName].filter(Boolean),
+          )
+          const foreignObstacles = clearanceObstacles.filter(
+            (obstacle) =>
+              !obstacle.connectedTo?.some((name) => names.has(name)),
+          )
+          const beforeCopper =
+            geometryCache.get(before) ?? collectCopper(before)
+          routeCandidateContext = {
+            foreignObstacles,
+            boundaryViolationCount: findInteriorDiagonalSegmentsInBufferZone(
+              [before],
+              boundary,
+              boundaryMargin,
+            ).length,
+            obstacleClearances: foreignObstacles.map((obstacle) =>
+              Math.min(
+                ...beforeCopper
+                  .filter(
+                    (part) =>
+                      !obstacle.zLayers ||
+                      obstacle.zLayers.some(
+                        (z) => z >= part.minZ && z <= part.maxZ,
+                      ),
+                  )
+                  .map((part) => distanceToObstacle(part, obstacle)),
+              ),
+            ),
+          }
+          routeCandidateContextCache.set(before, routeCandidateContext)
+        }
+        const { foreignObstacles, boundaryViolationCount, obstacleClearances } =
+          routeCandidateContext
         for (const scale of [1.01, 2, 4]) {
           const amount = Math.max(0.01, conflict.penetration * scale)
           for (const [x, y] of [
@@ -499,7 +593,7 @@ export const repairNodeClearance = ({
                 [moved],
                 boundary,
                 boundaryMargin,
-              ).length > boundaryViolations
+              ).length > boundaryViolationCount
             )
               continue
             const candidate = [...current]
@@ -511,6 +605,7 @@ export const repairNodeClearance = ({
               fixedRoutes,
               { evaluation, changedRoute: routeIndex },
               geometryCache,
+              copperSpatialIndexCache,
             )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
@@ -529,7 +624,7 @@ export const repairNodeClearance = ({
               !fixedCopperGuard.allows(current, candidate, [routeIndex], false)
             )
               continue
-            const afterCopper = collectCopper(moved)
+            const afterCopper = geometryCache.get(moved) ?? collectCopper(moved)
             if (
               foreignObstacles.some(
                 (obstacle, index) =>

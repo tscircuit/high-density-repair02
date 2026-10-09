@@ -9,6 +9,9 @@
   "files": [
     "lib"
   ],
+  "dependencies": {
+    "flatbush": "^4.5.0"
+  },
   "scripts": {
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
