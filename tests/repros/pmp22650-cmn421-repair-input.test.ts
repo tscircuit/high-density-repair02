@@ -7,16 +7,15 @@ import {
 
 test("repro: PMP22650 cmn_421 clearance repair input", async () => {
   const sample = (await Bun.file(
-    new URL(
-      "./assets/pmp22650-cmn421-repair-input.json",
-      import.meta.url,
-    ),
+    new URL("./assets/pmp22650-cmn421-repair-input.json", import.meta.url),
   ).json()) as DatasetSample
   const solver = new HighDensityRepairSolver({
     sample,
     margin: 0.2,
     repairBoundaryDiagonals: false,
   })
+  solver.solve()
 
+  expect(solver.solved).toBe(true)
   await expect(solver.visualize()).toMatchGraphicsSvg(import.meta.path)
-})
+}, 60_000)
