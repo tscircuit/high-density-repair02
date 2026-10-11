@@ -47,6 +47,22 @@ type RouteCandidateContext = {
   obstacleClearances: number[]
 }
 
+type RoutePairEvaluation = {
+  firstRoute: number
+  secondRoute: number
+  firstCopper: Copper[]
+  secondCopper: Copper[]
+  firstCopperSpatialIndex: CopperSpatialIndex
+  secondCopperSpatialIndex: CopperSpatialIndex
+  firstConnectionNames: Set<string | undefined>
+  secondRouteConnectionName?: string
+  secondRouteRootConnectionName?: string
+  clearance: number
+  firstCopperIndexes?: Set<number>
+  secondCopperIndexes?: Set<number>
+  retainedConflicts?: OrderedConflict[]
+}
+
 const MINIMUM_COPPER_COUNT_FOR_SPATIAL_INDEX = 16
 
 export type NodeClearanceRepairResult = {
@@ -122,12 +138,174 @@ const getCopperSpatialIndex = (
   return result
 }
 
+const getNearbyCopperIndexes = ({
+  copper,
+  clearance,
+  spatialIndex,
+}: {
+  copper: Copper
+  clearance: number
+  spatialIndex: CopperSpatialIndex
+}): number[] => {
+  const searchExpansion = clearance + copper.radius + spatialIndex.maxRadius
+  return (
+    spatialIndex.index?.search(
+      Math.min(copper.start.x, copper.end.x) - searchExpansion,
+      Math.min(copper.start.y, copper.end.y) - searchExpansion,
+      Math.max(copper.start.x, copper.end.x) + searchExpansion,
+      Math.max(copper.start.y, copper.end.y) + searchExpansion,
+    ) ??
+    spatialIndex.linearCandidateIndexes ??
+    []
+  )
+}
+
+const evaluateRoutePair = ({
+  firstRoute,
+  secondRoute,
+  firstCopper,
+  secondCopper,
+  firstCopperSpatialIndex,
+  secondCopperSpatialIndex,
+  firstConnectionNames,
+  secondRouteConnectionName,
+  secondRouteRootConnectionName,
+  clearance,
+  firstCopperIndexes,
+  secondCopperIndexes,
+  retainedConflicts = [],
+}: RoutePairEvaluation): OrderedConflict[] => {
+  const sameNet =
+    firstConnectionNames.has(secondRouteConnectionName) ||
+    firstConnectionNames.has(secondRouteRootConnectionName)
+  const worstByType = new Map<string, OrderedConflict>()
+  for (const conflict of retainedConflicts) {
+    worstByType.set(
+      conflict.key.slice(`${firstRoute}:${secondRoute}:`.length),
+      conflict,
+    )
+  }
+
+  const candidateSecondIndexesByFirst = new Map<number, number[]>()
+  if (secondCopperIndexes) {
+    for (const secondCopperIndex of secondCopperIndexes) {
+      const second = secondCopper[secondCopperIndex]!
+      for (const firstCopperIndex of getNearbyCopperIndexes({
+        copper: second,
+        clearance,
+        spatialIndex: firstCopperSpatialIndex,
+      })) {
+        const candidateSecondIndexes =
+          candidateSecondIndexesByFirst.get(firstCopperIndex) ?? []
+        candidateSecondIndexes.push(secondCopperIndex)
+        candidateSecondIndexesByFirst.set(
+          firstCopperIndex,
+          candidateSecondIndexes,
+        )
+      }
+    }
+  } else {
+    const candidateFirstIndexes = firstCopperIndexes ?? firstCopper.keys()
+    for (const firstCopperIndex of candidateFirstIndexes) {
+      candidateSecondIndexesByFirst.set(
+        firstCopperIndex,
+        getNearbyCopperIndexes({
+          copper: firstCopper[firstCopperIndex]!,
+          clearance,
+          spatialIndex: secondCopperSpatialIndex,
+        }),
+      )
+    }
+  }
+
+  for (const [firstCopperIndex, candidateSecondIndexes] of [
+    ...candidateSecondIndexesByFirst,
+  ].sort(([firstIndex], [secondIndex]) => firstIndex - secondIndex)) {
+    const first = firstCopper[firstCopperIndex]!
+    for (const secondCopperIndex of candidateSecondIndexes.sort(
+      (firstIndex, secondIndex) => firstIndex - secondIndex,
+    )) {
+      const second = secondCopper[secondCopperIndex]!
+      if (sameNet && !(first.via && second.via)) continue
+      if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
+      if (
+        sameNet &&
+        first.start.x === second.start.x &&
+        first.start.y === second.start.y
+      )
+        continue
+      const required = clearance + first.radius + second.radius
+      if (
+        Math.min(first.start.x, first.end.x) >
+          Math.max(second.start.x, second.end.x) + required ||
+        Math.min(second.start.x, second.end.x) >
+          Math.max(first.start.x, first.end.x) + required ||
+        Math.min(first.start.y, first.end.y) >
+          Math.max(second.start.y, second.end.y) + required ||
+        Math.min(second.start.y, second.end.y) >
+          Math.max(first.start.y, first.end.y) + required
+      )
+        continue
+      const penetration =
+        required -
+        segmentDistance(first.start, first.end, second.start, second.end)
+      if (penetration <= EPSILON) continue
+      const firstKey = first.via
+        ? `via:${first.viaIndex}`
+        : `trace:${first.minZ}`
+      const secondKey = second.via
+        ? `via:${second.viaIndex}`
+        : `trace:${second.minZ}`
+      const key = `${firstKey}:${secondKey}`
+      const worst = worstByType.get(key)
+      if (
+        worst &&
+        (penetration < worst.penetration ||
+          (penetration === worst.penetration &&
+            (firstCopperIndex > worst.firstCopperIndex ||
+              (firstCopperIndex === worst.firstCopperIndex &&
+                secondCopperIndex >= worst.secondCopperIndex))))
+      )
+        continue
+      worstByType.set(key, {
+        key: `${firstRoute}:${secondRoute}:${key}`,
+        firstRoute,
+        secondRoute,
+        first,
+        second,
+        penetration,
+        firstCopperIndex,
+        secondCopperIndex,
+      })
+    }
+  }
+  return [...worstByType.values()]
+}
+
+const isSameCopperGeometry = (first: Copper, second: Copper): boolean =>
+  first.start.x === second.start.x &&
+  first.start.y === second.start.y &&
+  first.end.x === second.end.x &&
+  first.end.y === second.end.y &&
+  first.radius === second.radius &&
+  first.minZ === second.minZ &&
+  first.maxZ === second.maxZ &&
+  first.via === second.via &&
+  first.viaIndex === second.viaIndex
+
+const isOrderedConflict = (conflict: Conflict): conflict is OrderedConflict =>
+  "firstCopperIndex" in conflict && "secondCopperIndex" in conflict
+
 const evaluate = (
   routes: HdRoute[],
   clearance: number,
   obstacles: Obstacle[],
   fixedRoutes: HdRoute[] = [],
-  previous?: { evaluation: Evaluation; changedRoute: number },
+  previous?: {
+    evaluation: Evaluation
+    changedRoute: number
+    routes: HdRoute[]
+  },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
   copperSpatialIndexCache: CopperSpatialIndexCache = new WeakMap(),
 ): Evaluation => {
@@ -140,17 +318,85 @@ const evaluate = (
     }
     return copper
   })
-  const conflicts: Conflict[] = previous
-    ? previous.evaluation.conflicts.filter(
-        (conflict) =>
-          conflict.firstRoute !== previous.changedRoute &&
-          conflict.secondRoute !== previous.changedRoute,
+  const changedCopperIndexes = new Set<number>()
+  let canIncrementallyEvaluateRoutePairs = false
+  if (previous) {
+    const previousRoute = previous.routes[previous.changedRoute]!
+    const previousCopper =
+      geometryCache.get(previousRoute) ?? collectCopper(previousRoute)
+    const nextCopper = geometries[previous.changedRoute]!
+    if (previousCopper.length === nextCopper.length) {
+      canIncrementallyEvaluateRoutePairs = true
+      for (
+        let copperIndex = 0;
+        copperIndex < nextCopper.length;
+        copperIndex++
+      ) {
+        if (
+          !isSameCopperGeometry(
+            previousCopper[copperIndex]!,
+            nextCopper[copperIndex]!,
+          )
+        ) {
+          changedCopperIndexes.add(copperIndex)
+        }
+      }
+    }
+  }
+
+  const routePairsNeedingFullEvaluation = new Set<string>()
+  if (previous && canIncrementallyEvaluateRoutePairs) {
+    // A moved point changes only its adjacent copper. Retain every unaffected
+    // pair result, but fully rescan a pair when its previous worst contact
+    // moved so the next-worst contact can take its place.
+    for (const conflict of previous.evaluation.conflicts) {
+      if (
+        conflict.secondRoute < 0 ||
+        conflict.firstRoute === conflict.secondRoute ||
+        (conflict.firstRoute !== previous.changedRoute &&
+          conflict.secondRoute !== previous.changedRoute)
       )
-    : []
-  let score = conflicts.reduce(
-    (sum, conflict) => sum + conflict.penetration ** 2,
-    0,
-  )
+        continue
+      const pairKey = `${conflict.firstRoute}:${conflict.secondRoute}`
+      if (!isOrderedConflict(conflict)) {
+        routePairsNeedingFullEvaluation.add(pairKey)
+        continue
+      }
+      const changedCopperIndex =
+        conflict.firstRoute === previous.changedRoute
+          ? conflict.firstCopperIndex
+          : conflict.secondCopperIndex
+      if (changedCopperIndexes.has(changedCopperIndex)) {
+        routePairsNeedingFullEvaluation.add(pairKey)
+      }
+    }
+  }
+
+  const retainedPairConflicts = new Map<string, OrderedConflict[]>()
+  const conflicts: Conflict[] = []
+  if (previous) {
+    for (const conflict of previous.evaluation.conflicts) {
+      if (
+        conflict.firstRoute !== previous.changedRoute &&
+        conflict.secondRoute !== previous.changedRoute
+      ) {
+        conflicts.push(conflict)
+        continue
+      }
+      if (
+        !canIncrementallyEvaluateRoutePairs ||
+        conflict.secondRoute < 0 ||
+        conflict.firstRoute === conflict.secondRoute ||
+        !isOrderedConflict(conflict)
+      )
+        continue
+      const pairKey = `${conflict.firstRoute}:${conflict.secondRoute}`
+      if (routePairsNeedingFullEvaluation.has(pairKey)) continue
+      const retained = retainedPairConflicts.get(pairKey) ?? []
+      retained.push(conflict)
+      retainedPairConflicts.set(pairKey, retained)
+    }
+  }
   for (let firstRoute = 0; firstRoute < routes.length; firstRoute++) {
     const a = routes[firstRoute]!
     const names = new Set(
@@ -183,7 +429,6 @@ const evaluate = (
             second,
             penetration,
           })
-          score += penetration ** 2
         }
       }
       for (const [obstacleIndex, obstacle] of obstacles.entries()) {
@@ -212,7 +457,6 @@ const evaluate = (
         }
         if (worst) {
           conflicts.push(worst)
-          score += worst.penetration ** 2
         }
       }
     }
@@ -228,96 +472,58 @@ const evaluate = (
       )
         continue
       const b = allRoutes[secondRoute]!
+      const firstCopper = geometries[firstRoute]!
       const secondCopper = geometries[secondRoute]!
+      const firstCopperSpatialIndex = getCopperSpatialIndex(
+        a,
+        firstCopper,
+        copperSpatialIndexCache,
+      )
       const secondCopperSpatialIndex = getCopperSpatialIndex(
         b,
         secondCopper,
         copperSpatialIndexCache,
       )
-      const sameNet =
-        names.has(b.connectionName) || names.has(b.rootConnectionName)
-      // Track each via and trace layer independently. A less severe contact
-      // must not hide a new violation at another via or on another layer.
-      // Trace segments still share a key so splitting one does not change
-      // the objective merely by changing its number of pieces.
-      const worstByType = new Map<string, OrderedConflict>()
-      for (const [firstCopperIndex, first] of geometries[
-        firstRoute
-      ]!.entries()) {
-        const searchExpansion =
-          clearance + first.radius + secondCopperSpatialIndex.maxRadius
-        const candidateIndexes =
-          secondCopperSpatialIndex.index?.search(
-            Math.min(first.start.x, first.end.x) - searchExpansion,
-            Math.min(first.start.y, first.end.y) - searchExpansion,
-            Math.max(first.start.x, first.end.x) + searchExpansion,
-            Math.max(first.start.y, first.end.y) + searchExpansion,
-          ) ??
-          secondCopperSpatialIndex.linearCandidateIndexes ??
-          []
-        for (const secondCopperIndex of candidateIndexes) {
-          const second = secondCopper[secondCopperIndex]!
-          if (sameNet && !(first.via && second.via)) continue
-          if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
-          if (
-            sameNet &&
-            first.start.x === second.start.x &&
-            first.start.y === second.start.y
-          )
-            continue
-          const required = clearance + first.radius + second.radius
-          if (
-            Math.min(first.start.x, first.end.x) >
-              Math.max(second.start.x, second.end.x) + required ||
-            Math.min(second.start.x, second.end.x) >
-              Math.max(first.start.x, first.end.x) + required ||
-            Math.min(first.start.y, first.end.y) >
-              Math.max(second.start.y, second.end.y) + required ||
-            Math.min(second.start.y, second.end.y) >
-              Math.max(first.start.y, first.end.y) + required
-          )
-            continue
-          const penetration =
-            required -
-            segmentDistance(first.start, first.end, second.start, second.end)
-          if (penetration <= EPSILON) continue
-          const firstKey = first.via
-            ? `via:${first.viaIndex}`
-            : `trace:${first.minZ}`
-          const secondKey = second.via
-            ? `via:${second.viaIndex}`
-            : `trace:${second.minZ}`
-          const key = `${firstKey}:${secondKey}`
-          const worst = worstByType.get(key)
-          if (
-            worst &&
-            (penetration < worst.penetration ||
-              (penetration === worst.penetration &&
-                (firstCopperIndex > worst.firstCopperIndex ||
-                  (firstCopperIndex === worst.firstCopperIndex &&
-                    secondCopperIndex >= worst.secondCopperIndex))))
-          )
-            continue
-          worstByType.set(key, {
-            key: `${firstRoute}:${secondRoute}:${key}`,
-            firstRoute,
-            secondRoute,
-            first,
-            second,
-            penetration,
-            firstCopperIndex,
-            secondCopperIndex,
-          })
-        }
-      }
-      for (const conflict of worstByType.values()) {
-        conflicts.push(conflict)
-        score += conflict.penetration ** 2
-      }
+      const pairKey = `${firstRoute}:${secondRoute}`
+      const needsFullEvaluation =
+        !previous ||
+        !canIncrementallyEvaluateRoutePairs ||
+        routePairsNeedingFullEvaluation.has(pairKey)
+      conflicts.push(
+        ...evaluateRoutePair({
+          firstRoute,
+          secondRoute,
+          firstCopper,
+          secondCopper,
+          firstCopperSpatialIndex,
+          secondCopperSpatialIndex,
+          firstConnectionNames: names,
+          secondRouteConnectionName: b.connectionName,
+          secondRouteRootConnectionName: b.rootConnectionName,
+          clearance,
+          firstCopperIndexes:
+            !needsFullEvaluation && firstRoute === previous?.changedRoute
+              ? changedCopperIndexes
+              : undefined,
+          secondCopperIndexes:
+            !needsFullEvaluation && secondRoute === previous?.changedRoute
+              ? changedCopperIndexes
+              : undefined,
+          retainedConflicts: needsFullEvaluation
+            ? undefined
+            : retainedPairConflicts.get(pairKey),
+        }),
+      )
     }
   }
   conflicts.sort((a, b) => b.penetration - a.penetration)
-  return { conflicts, score }
+  return {
+    conflicts,
+    score: conflicts.reduce(
+      (sum, conflict) => sum + conflict.penetration ** 2,
+      0,
+    ),
+  }
 }
 
 export const hasNodeClearanceRegression = (
@@ -610,7 +816,7 @@ export const repairNodeClearance = ({
               clearance,
               clearanceObstacles,
               fixedRoutes,
-              { evaluation, changedRoute: routeIndex },
+              { evaluation, changedRoute: routeIndex, routes: current },
               geometryCache,
               copperSpatialIndexCache,
             )
