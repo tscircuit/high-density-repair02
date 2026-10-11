@@ -1,9 +1,9 @@
 import Flatbush from "flatbush"
 import { DEFAULT_TRACE_THICKNESS, EPSILON } from "../shared/constants"
 import type { BoundaryRect, HdRoute, Obstacle, XY } from "../shared/types"
-import { findInteriorDiagonalSegmentsInBufferZone } from "./findInteriorDiagonalSegmentsInBufferZone"
 import { cloneRoute } from "./cloneRoute"
 import type { FixedCopperClearanceGuard } from "./FixedCopperClearanceGuard"
+import { findInteriorDiagonalSegmentsInBufferZone } from "./findInteriorDiagonalSegmentsInBufferZone"
 import { segmentDistance } from "./segmentDistance"
 
 type Copper = {
@@ -35,6 +35,7 @@ type Evaluation = { conflicts: Conflict[]; score: number }
 
 type CopperSpatialIndex = {
   index?: Flatbush
+  linearCandidateIndexes?: number[]
   maxRadius: number
 }
 
@@ -45,6 +46,8 @@ type RouteCandidateContext = {
   boundaryViolationCount: number
   obstacleClearances: number[]
 }
+
+const MINIMUM_COPPER_COUNT_FOR_SPATIAL_INDEX = 16
 
 export type NodeClearanceRepairResult = {
   routes: HdRoute[]
@@ -100,7 +103,7 @@ const getCopperSpatialIndex = (
   const result: CopperSpatialIndex = {
     maxRadius: Math.max(0, ...copper.map((part) => part.radius)),
   }
-  if (copper.length > 0) {
+  if (copper.length >= MINIMUM_COPPER_COUNT_FOR_SPATIAL_INDEX) {
     const index = new Flatbush(copper.length)
     for (const part of copper) {
       index.add(
@@ -112,6 +115,8 @@ const getCopperSpatialIndex = (
     }
     index.finish()
     result.index = index
+  } else {
+    result.linearCandidateIndexes = copper.map((_, index) => index)
   }
   cache.set(route, result)
   return result
@@ -247,7 +252,9 @@ const evaluate = (
             Math.min(first.start.y, first.end.y) - searchExpansion,
             Math.max(first.start.x, first.end.x) + searchExpansion,
             Math.max(first.start.y, first.end.y) + searchExpansion,
-          ) ?? []
+          ) ??
+          secondCopperSpatialIndex.linearCandidateIndexes ??
+          []
         for (const secondCopperIndex of candidateIndexes) {
           const second = secondCopper[secondCopperIndex]!
           if (sameNet && !(first.via && second.via)) continue
