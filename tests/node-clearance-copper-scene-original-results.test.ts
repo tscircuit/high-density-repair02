@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test"
 import { createHash } from "node:crypto"
 import { gunzipSync } from "node:zlib"
-import {
-  HighDensityRepairSolver,
-  type DatasetSample,
-} from "../lib"
+import { HighDensityRepairSolver, type DatasetSample } from "../lib"
 
 type OriginalResult = {
   sourceNode: number

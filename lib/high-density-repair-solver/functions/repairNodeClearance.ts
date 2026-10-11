@@ -253,7 +253,11 @@ const evaluate = (
   clearance: number,
   obstacles: Obstacle[],
   fixedRoutes: HdRoute[] = [],
-  previous?: { evaluation: Evaluation; changedRoute: number; routes: HdRoute[] },
+  previous?: {
+    evaluation: Evaluation
+    changedRoute: number
+    routes: HdRoute[]
+  },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
   spatialPatternCache = new RouteCopperScenePatternCache(),
 ): Evaluation => {
@@ -268,7 +272,11 @@ const evaluate = (
   })
   const nearbyPairs = previous
     ? spatialPatternCache.getCandidatePairs(
-        previous.routes, fixedRoutes, previous.changedRoute, geometries, clearance,
+        previous.routes,
+        fixedRoutes,
+        previous.changedRoute,
+        geometries,
+        clearance,
       )
     : undefined
   const conflicts: Conflict[] = previous
@@ -372,7 +380,11 @@ const evaluate = (
       if (nearbyPairs && !nearbySecondIndexes) continue
       const firstGeometry = geometries[firstRoute]!
       const secondGeometry = geometries[secondRoute]!
-      for (let firstIndex = 0; firstIndex < firstGeometry.length; firstIndex++) {
+      for (
+        let firstIndex = 0;
+        firstIndex < firstGeometry.length;
+        firstIndex++
+      ) {
         const first = firstGeometry[firstIndex]!
         const secondIndexes = nearbySecondIndexes?.[firstIndex]
         if (nearbyPairs && !secondIndexes) continue
