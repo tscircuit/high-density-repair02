@@ -60,8 +60,12 @@ type RoutePairEvaluation = {
   clearance: number
   firstCopperIndexes?: Set<number>
   secondCopperIndexes?: Set<number>
+  excludedFirstCopperIndexes?: Set<number>
+  excludedSecondCopperIndexes?: Set<number>
   retainedConflicts?: OrderedConflict[]
 }
+
+type UnchangedRoutePairConflictCache = Map<string, OrderedConflict[]>
 
 const MINIMUM_COPPER_COUNT_FOR_SPATIAL_INDEX = 16
 
@@ -173,6 +177,8 @@ const evaluateRoutePair = ({
   clearance,
   firstCopperIndexes,
   secondCopperIndexes,
+  excludedFirstCopperIndexes,
+  excludedSecondCopperIndexes,
   retainedConflicts = [],
 }: RoutePairEvaluation): OrderedConflict[] => {
   const sameNet =
@@ -189,6 +195,7 @@ const evaluateRoutePair = ({
   const candidateSecondIndexesByFirst = new Map<number, number[]>()
   if (secondCopperIndexes) {
     for (const secondCopperIndex of secondCopperIndexes) {
+      if (excludedSecondCopperIndexes?.has(secondCopperIndex)) continue
       const second = secondCopper[secondCopperIndex]!
       for (const firstCopperIndex of getNearbyCopperIndexes({
         copper: second,
@@ -207,6 +214,7 @@ const evaluateRoutePair = ({
   } else {
     const candidateFirstIndexes = firstCopperIndexes ?? firstCopper.keys()
     for (const firstCopperIndex of candidateFirstIndexes) {
+      if (excludedFirstCopperIndexes?.has(firstCopperIndex)) continue
       candidateSecondIndexesByFirst.set(
         firstCopperIndex,
         getNearbyCopperIndexes({
@@ -225,6 +233,7 @@ const evaluateRoutePair = ({
     for (const secondCopperIndex of candidateSecondIndexes.sort(
       (firstIndex, secondIndex) => firstIndex - secondIndex,
     )) {
+      if (excludedSecondCopperIndexes?.has(secondCopperIndex)) continue
       const second = secondCopper[secondCopperIndex]!
       if (sameNet && !(first.via && second.via)) continue
       if (first.maxZ < second.minZ || second.maxZ < first.minZ) continue
@@ -282,6 +291,73 @@ const evaluateRoutePair = ({
   return [...worstByType.values()]
 }
 
+const getUnchangedRoutePairConflicts = ({
+  routes,
+  changedRoute,
+  changedCopperIndexes,
+  firstRoute,
+  secondRoute,
+  clearance,
+  geometryCache,
+  copperSpatialIndexCache,
+  unchangedRoutePairConflictCache,
+}: {
+  routes: HdRoute[]
+  changedRoute: number
+  changedCopperIndexes: Set<number>
+  firstRoute: number
+  secondRoute: number
+  clearance: number
+  geometryCache: WeakMap<HdRoute, Copper[]>
+  copperSpatialIndexCache: CopperSpatialIndexCache
+  unchangedRoutePairConflictCache: UnchangedRoutePairConflictCache
+}): OrderedConflict[] => {
+  const changedCopperKey = `${changedRoute}:${firstRoute}:${secondRoute}:${[
+    ...changedCopperIndexes,
+  ].join(",")}`
+  const cached = unchangedRoutePairConflictCache.get(changedCopperKey)
+  if (cached) return cached
+
+  const firstRouteObject = routes[firstRoute]!
+  const secondRouteObject = routes[secondRoute]!
+  const firstCopper =
+    geometryCache.get(firstRouteObject) ?? collectCopper(firstRouteObject)
+  const secondCopper =
+    geometryCache.get(secondRouteObject) ?? collectCopper(secondRouteObject)
+  geometryCache.set(firstRouteObject, firstCopper)
+  geometryCache.set(secondRouteObject, secondCopper)
+  const conflicts = evaluateRoutePair({
+    firstRoute,
+    secondRoute,
+    firstCopper,
+    secondCopper,
+    firstCopperSpatialIndex: getCopperSpatialIndex(
+      firstRouteObject,
+      firstCopper,
+      copperSpatialIndexCache,
+    ),
+    secondCopperSpatialIndex: getCopperSpatialIndex(
+      secondRouteObject,
+      secondCopper,
+      copperSpatialIndexCache,
+    ),
+    firstConnectionNames: new Set(
+      [firstRouteObject.connectionName, firstRouteObject.rootConnectionName].filter(
+        Boolean,
+      ),
+    ),
+    secondRouteConnectionName: secondRouteObject.connectionName,
+    secondRouteRootConnectionName: secondRouteObject.rootConnectionName,
+    clearance,
+    excludedFirstCopperIndexes:
+      changedRoute === firstRoute ? changedCopperIndexes : undefined,
+    excludedSecondCopperIndexes:
+      changedRoute === secondRoute ? changedCopperIndexes : undefined,
+  })
+  unchangedRoutePairConflictCache.set(changedCopperKey, conflicts)
+  return conflicts
+}
+
 const isSameCopperGeometry = (first: Copper, second: Copper): boolean =>
   first.start.x === second.start.x &&
   first.start.y === second.start.y &&
@@ -308,8 +384,13 @@ const evaluate = (
   },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
   copperSpatialIndexCache: CopperSpatialIndexCache = new WeakMap(),
+  unchangedRoutePairConflictCache: UnchangedRoutePairConflictCache =
+    new Map(),
 ): Evaluation => {
   const allRoutes = [...routes, ...fixedRoutes]
+  const previousAllRoutes = previous
+    ? [...previous.routes, ...fixedRoutes]
+    : undefined
   const geometries = allRoutes.map((route) => {
     let copper = geometryCache.get(route)
     if (!copper) {
@@ -485,10 +566,30 @@ const evaluate = (
         copperSpatialIndexCache,
       )
       const pairKey = `${firstRoute}:${secondRoute}`
-      const needsFullEvaluation =
+      let needsFullEvaluation =
         !previous ||
         !canIncrementallyEvaluateRoutePairs ||
         routePairsNeedingFullEvaluation.has(pairKey)
+      let retainedConflicts = retainedPairConflicts.get(pairKey)
+      if (
+        previous &&
+        previousAllRoutes &&
+        canIncrementallyEvaluateRoutePairs &&
+        routePairsNeedingFullEvaluation.has(pairKey)
+      ) {
+        retainedConflicts = getUnchangedRoutePairConflicts({
+          routes: previousAllRoutes,
+          changedRoute: previous.changedRoute,
+          changedCopperIndexes,
+          firstRoute,
+          secondRoute,
+          clearance,
+          geometryCache,
+          copperSpatialIndexCache,
+          unchangedRoutePairConflictCache,
+        })
+        needsFullEvaluation = false
+      }
       conflicts.push(
         ...evaluateRoutePair({
           firstRoute,
@@ -511,7 +612,7 @@ const evaluate = (
               : undefined,
           retainedConflicts: needsFullEvaluation
             ? undefined
-            : retainedPairConflicts.get(pairKey),
+            : retainedConflicts,
         }),
       )
     }
@@ -706,6 +807,8 @@ export const repairNodeClearance = ({
     HdRoute,
     RouteCandidateContext
   >()
+  const unchangedRoutePairConflictCache: UnchangedRoutePairConflictCache =
+    new Map()
   let evaluation = evaluate(
     current,
     clearance,
@@ -714,6 +817,7 @@ export const repairNodeClearance = ({
     undefined,
     geometryCache,
     copperSpatialIndexCache,
+    unchangedRoutePairConflictCache,
   )
   // Give each initial conflict a full sweep of both copper parts, three
   // distances and eight directions, with room for a second improving move.
@@ -819,6 +923,7 @@ export const repairNodeClearance = ({
               { evaluation, changedRoute: routeIndex, routes: current },
               geometryCache,
               copperSpatialIndexCache,
+              unchangedRoutePairConflictCache,
             )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
@@ -858,6 +963,7 @@ export const repairNodeClearance = ({
               continue
             current = candidate
             evaluation = next
+            unchangedRoutePairConflictCache.clear()
             improved = true
             break
           }
