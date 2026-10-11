@@ -18,6 +18,9 @@
     "start": "cosmos",
     "build:site": "cosmos-export"
   },
+  "dependencies": {
+    "flatbush": "^4.6.2"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@tscircuit/solver-utils": "^0.0.18",
