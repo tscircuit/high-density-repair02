@@ -12,12 +12,22 @@ type CopperGeometry = {
   radius: number
 }
 
+type CopperSceneQuery = {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  hits: number[]
+}
+
 type CopperScene = {
   index: Flatbush
   routeIndexes: Uint32Array
   copperIndexes: Uint32Array
   maxMagnitude: number
   fixedRoutes: HdRoute[]
+  queries: CopperSceneQuery[]
+  queryHitCount: number
 }
 
 /** Copper pairs grouped by the unchanged route, in original copper order. */
@@ -115,7 +125,7 @@ export class RouteCopperScenePatternCache {
         }
       }
       index.finish()
-      scene = { index, routeIndexes, copperIndexes, maxMagnitude, fixedRoutes }
+      scene = { index, routeIndexes, copperIndexes, maxMagnitude, fixedRoutes, queries: [], queryHitCount: 0 }
       const bytes =
         index.data.byteLength +
         routeIndexes.byteLength +
@@ -155,14 +165,24 @@ export class RouteCopperScenePatternCache {
           reach +
           1)
       if (!Number.isFinite(padding + reach)) return undefined
-      const hits = scene.index
-        .search(
-          Math.min(copper.start.x, copper.end.x) - reach - padding,
-          Math.min(copper.start.y, copper.end.y) - reach - padding,
-          Math.max(copper.start.x, copper.end.x) + reach + padding,
-          Math.max(copper.start.y, copper.end.y) + reach + padding,
-        )
-        .sort((a, b) => a - b)
+      const minX = Math.min(copper.start.x, copper.end.x) - reach - padding
+      const minY = Math.min(copper.start.y, copper.end.y) - reach - padding
+      const maxX = Math.max(copper.start.x, copper.end.x) + reach + padding
+      const maxY = Math.max(copper.start.y, copper.end.y) + reach + padding
+      const cached = scene.queries[changedIndex]
+      let hits: number[]
+      if (cached && cached.minX === minX && cached.minY === minY && cached.maxX === maxX && cached.maxY === maxY) {
+        hits = cached.hits
+      } else {
+        hits = scene.index.search(minX, minY, maxX, maxY).sort((a, b) => a - b)
+        const retainedHits = scene.queryHitCount - (cached?.hits.length ?? 0) + hits.length
+        // Bound the extra cache to 65,536 entry IDs per scene. Most candidate
+        // moves change only a few segments, so unchanged queries are reused.
+        if (retainedHits <= 65_536) {
+          scene.queries[changedIndex] = { minX, minY, maxX, maxY, hits }
+          scene.queryHitCount = retainedHits
+        }
+      }
       for (const hit of hits) {
         const routeIndex = scene.routeIndexes[hit]!
         const copperIndex = scene.copperIndexes[hit]!
@@ -184,6 +204,11 @@ export class RouteCopperScenePatternCache {
 }
 
 type Copper = {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  magnitude: number
   start: XY
   end: XY
   radius: number
@@ -205,6 +230,14 @@ type Conflict = {
 
 type Evaluation = { conflicts: Conflict[]; score: number }
 
+type ObstacleBounds = {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  magnitude: number
+}
+
 export type NodeClearanceRepairResult = {
   routes: HdRoute[]
   initialConflictCount: number
@@ -222,6 +255,11 @@ const collectCopper = (route: HdRoute): Copper[] => {
     copper.push({
       start,
       end,
+      minX: Math.min(start.x, end.x),
+      minY: Math.min(start.y, end.y),
+      maxX: Math.max(start.x, end.x),
+      maxY: Math.max(start.y, end.y),
+      magnitude: 1 + Math.abs(start.x) + Math.abs(start.y) + Math.abs(end.x) + Math.abs(end.y),
       radius: (route.traceThickness ?? DEFAULT_TRACE_THICKNESS) / 2,
       minZ: start.z ?? 0,
       maxZ: start.z ?? 0,
@@ -237,6 +275,11 @@ const collectCopper = (route: HdRoute): Copper[] => {
     copper.push({
       start: via,
       end: via,
+      minX: via.x,
+      minY: via.y,
+      maxX: via.x,
+      maxY: via.y,
+      magnitude: 1 + 2 * (Math.abs(via.x) + Math.abs(via.y)),
       radius: (via.diameter ?? route.viaDiameter ?? 0.3) / 2,
       minZ: layers.length ? Math.min(...layers) : 0,
       maxZ: layers.length ? Math.max(...layers) : 1,
@@ -260,6 +303,7 @@ const evaluate = (
   },
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
   spatialPatternCache = new RouteCopperScenePatternCache(),
+  obstacleBoundsCache = new WeakMap<Obstacle, ObstacleBounds>(),
 ): Evaluation => {
   const allRoutes = [...routes, ...fixedRoutes]
   const geometries = allRoutes.map((route) => {
@@ -327,6 +371,17 @@ const evaluate = (
       }
       for (const [obstacleIndex, obstacle] of obstacles.entries()) {
         if (obstacle.connectedTo?.some((name) => names.has(name))) continue
+        let bounds = obstacleBoundsCache.get(obstacle)
+        if (!bounds && obstacle.center && obstacle.width !== undefined && obstacle.height !== undefined && obstacle.width >= 0 && obstacle.height >= 0) {
+          bounds = {
+            minX: obstacle.center.x - obstacle.width / 2,
+            minY: obstacle.center.y - obstacle.height / 2,
+            maxX: obstacle.center.x + obstacle.width / 2,
+            maxY: obstacle.center.y + obstacle.height / 2,
+            magnitude: Math.abs(obstacle.center.x) + Math.abs(obstacle.center.y) + Math.abs(obstacle.width) + Math.abs(obstacle.height),
+          }
+          obstacleBoundsCache.set(obstacle, bounds)
+        }
         let worst: Conflict | undefined
         for (const copper of geometries[firstRoute]!) {
           if (
@@ -336,14 +391,14 @@ const evaluate = (
             continue
           // Only exact distances below clearance can contribute a conflict.
           // Reject separated AABBs before testing all four rectangle edges.
-          if (obstacle.center && obstacle.width !== undefined && obstacle.height !== undefined && obstacle.width >= 0 && obstacle.height >= 0 && clearance + copper.radius >= 0) {
+          if (bounds && clearance + copper.radius >= 0) {
             const reach = clearance + copper.radius
-            const padding = Number.EPSILON * 16 * (1 + Math.abs(copper.start.x) + Math.abs(copper.start.y) + Math.abs(copper.end.x) + Math.abs(copper.end.y) + Math.abs(obstacle.center.x) + Math.abs(obstacle.center.y) + Math.abs(obstacle.width) + Math.abs(obstacle.height) + Math.abs(reach))
+            const padding = Number.EPSILON * 32 * (copper.magnitude + bounds.magnitude + Math.abs(reach))
             if (
-              Math.min(copper.start.x, copper.end.x) > obstacle.center.x + obstacle.width / 2 + reach + padding ||
-              Math.max(copper.start.x, copper.end.x) < obstacle.center.x - obstacle.width / 2 - reach - padding ||
-              Math.min(copper.start.y, copper.end.y) > obstacle.center.y + obstacle.height / 2 + reach + padding ||
-              Math.max(copper.start.y, copper.end.y) < obstacle.center.y - obstacle.height / 2 - reach - padding
+              copper.minX > bounds.maxX + reach + padding ||
+              copper.maxX < bounds.minX - reach - padding ||
+              copper.minY > bounds.maxY + reach + padding ||
+              copper.maxY < bounds.minY - reach - padding
             ) continue
           }
           const penetration = clearance - distanceToObstacle(copper, obstacle)
@@ -641,6 +696,8 @@ export const repairNodeClearance = ({
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
   const spatialPatternCache = new RouteCopperScenePatternCache()
   const obstacleClearanceCache = new WeakMap<HdRoute, Map<Obstacle, number>>()
+  const obstacleBoundsCache = new WeakMap<Obstacle, ObstacleBounds>()
+  const boundaryViolationCache = new WeakMap<HdRoute, number>()
   let evaluation = evaluate(
     current,
     clearance,
@@ -649,6 +706,7 @@ export const repairNodeClearance = ({
     undefined,
     geometryCache,
     spatialPatternCache,
+    obstacleBoundsCache,
   )
   // Give each initial conflict a full sweep of both copper parts, three
   // distances and eight directions, with room for a second improving move.
@@ -684,12 +742,13 @@ export const repairNodeClearance = ({
         const foreignObstacles = clearanceObstacles.filter(
           (obstacle) => !obstacle.connectedTo?.some((name) => names.has(name)),
         )
-        const beforeCopper = collectCopper(before)
-        const boundaryViolations = findInteriorDiagonalSegmentsInBufferZone(
-          [before],
-          boundary,
-          boundaryMargin,
-        ).length
+        // evaluate() has already cached every route in the current state.
+        const beforeCopper = geometryCache.get(before)!
+        let boundaryViolations = boundaryViolationCache.get(before)
+        if (boundaryViolations === undefined) {
+          boundaryViolations = findInteriorDiagonalSegmentsInBufferZone([before], boundary, boundaryMargin).length
+          boundaryViolationCache.set(before, boundaryViolations)
+        }
         let cachedObstacleClearances = obstacleClearanceCache.get(before)
         if (!cachedObstacleClearances) {
           cachedObstacleClearances = new Map()
@@ -752,6 +811,7 @@ export const repairNodeClearance = ({
               { evaluation, changedRoute: routeIndex, routes: current },
               geometryCache,
               spatialPatternCache,
+              obstacleBoundsCache,
             )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
@@ -770,7 +830,7 @@ export const repairNodeClearance = ({
               !fixedCopperGuard.allows(current, candidate, [routeIndex], false)
             )
               continue
-            const afterCopper = collectCopper(moved)
+            const afterCopper = geometryCache.get(moved)!
             if (
               foreignObstacles.some(
                 (obstacle, index) =>
