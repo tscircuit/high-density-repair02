@@ -304,6 +304,7 @@ const evaluate = (
   geometryCache = new WeakMap<HdRoute, Copper[]>(),
   spatialPatternCache = new RouteCopperScenePatternCache(),
   obstacleBoundsCache = new WeakMap<Obstacle, ObstacleBounds>(),
+  routeNetCache = new WeakMap<HdRoute, Set<string | undefined>>(),
 ): Evaluation => {
   const allRoutes = [...routes, ...fixedRoutes]
   const geometries = allRoutes.map((route) => {
@@ -335,10 +336,15 @@ const evaluate = (
     0,
   )
   for (let firstRoute = 0; firstRoute < routes.length; firstRoute++) {
+    // Only pairs involving the changed route are reevaluated. Later first
+    // routes cannot contain such a pair, so do not scan their neighbors.
+    if (previous && firstRoute > previous.changedRoute) break
     const a = routes[firstRoute]!
-    const names = new Set(
-      [a.connectionName, a.rootConnectionName].filter(Boolean),
-    )
+    let names = routeNetCache.get(a)
+    if (!names) {
+      names = new Set([a.connectionName, a.rootConnectionName].filter(Boolean))
+      routeNetCache.set(a, names)
+    }
     if (!previous || firstRoute === previous.changedRoute) {
       const vias = geometries[firstRoute]!.filter((part) => part.via)
       for (let firstIndex = 0; firstIndex < vias.length; firstIndex++) {
@@ -422,17 +428,14 @@ const evaluate = (
         }
       }
     }
+    const onlyChangedSecond = previous && firstRoute !== previous.changedRoute
+    const firstSecondRoute = onlyChangedSecond ? previous.changedRoute : firstRoute + 1
+    const endSecondRoute = onlyChangedSecond ? previous.changedRoute + 1 : allRoutes.length
     for (
-      let secondRoute = firstRoute + 1;
-      secondRoute < allRoutes.length;
+      let secondRoute = firstSecondRoute;
+      secondRoute < endSecondRoute;
       secondRoute++
     ) {
-      if (
-        previous &&
-        firstRoute !== previous.changedRoute &&
-        secondRoute !== previous.changedRoute
-      )
-        continue
       const b = allRoutes[secondRoute]!
       const sameNet =
         names.has(b.connectionName) || names.has(b.rootConnectionName)
@@ -698,6 +701,7 @@ export const repairNodeClearance = ({
   const obstacleClearanceCache = new WeakMap<HdRoute, Map<Obstacle, number>>()
   const obstacleBoundsCache = new WeakMap<Obstacle, ObstacleBounds>()
   const boundaryViolationCache = new WeakMap<HdRoute, number>()
+  const routeNetCache = new WeakMap<HdRoute, Set<string | undefined>>()
   let evaluation = evaluate(
     current,
     clearance,
@@ -707,6 +711,7 @@ export const repairNodeClearance = ({
     geometryCache,
     spatialPatternCache,
     obstacleBoundsCache,
+    routeNetCache,
   )
   // Give each initial conflict a full sweep of both copper parts, three
   // distances and eight directions, with room for a second improving move.
@@ -812,6 +817,7 @@ export const repairNodeClearance = ({
               geometryCache,
               spatialPatternCache,
               obstacleBoundsCache,
+              routeNetCache,
             )
             if (
               next.conflicts.length > evaluation.conflicts.length ||
