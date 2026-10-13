@@ -334,6 +334,18 @@ const evaluate = (
             !obstacle.zLayers.some((z) => z >= copper.minZ && z <= copper.maxZ)
           )
             continue
+          // Only exact distances below clearance can contribute a conflict.
+          // Reject separated AABBs before testing all four rectangle edges.
+          if (obstacle.center && obstacle.width !== undefined && obstacle.height !== undefined && obstacle.width >= 0 && obstacle.height >= 0 && clearance + copper.radius >= 0) {
+            const reach = clearance + copper.radius
+            const padding = Number.EPSILON * 16 * (1 + Math.abs(copper.start.x) + Math.abs(copper.start.y) + Math.abs(copper.end.x) + Math.abs(copper.end.y) + Math.abs(obstacle.center.x) + Math.abs(obstacle.center.y) + Math.abs(obstacle.width) + Math.abs(obstacle.height) + Math.abs(reach))
+            if (
+              Math.min(copper.start.x, copper.end.x) > obstacle.center.x + obstacle.width / 2 + reach + padding ||
+              Math.max(copper.start.x, copper.end.x) < obstacle.center.x - obstacle.width / 2 - reach - padding ||
+              Math.min(copper.start.y, copper.end.y) > obstacle.center.y + obstacle.height / 2 + reach + padding ||
+              Math.max(copper.start.y, copper.end.y) < obstacle.center.y - obstacle.height / 2 - reach - padding
+            ) continue
+          }
           const penetration = clearance - distanceToObstacle(copper, obstacle)
           if (
             penetration <= EPSILON ||
@@ -628,6 +640,7 @@ export const repairNodeClearance = ({
   let current = routes
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
   const spatialPatternCache = new RouteCopperScenePatternCache()
+  const obstacleClearanceCache = new WeakMap<HdRoute, Map<Obstacle, number>>()
   let evaluation = evaluate(
     current,
     clearance,
@@ -677,8 +690,15 @@ export const repairNodeClearance = ({
           boundary,
           boundaryMargin,
         ).length
-        const obstacleClearances = foreignObstacles.map((obstacle) =>
-          Math.min(
+        let cachedObstacleClearances = obstacleClearanceCache.get(before)
+        if (!cachedObstacleClearances) {
+          cachedObstacleClearances = new Map()
+          obstacleClearanceCache.set(before, cachedObstacleClearances)
+        }
+        const obstacleClearances = foreignObstacles.map((obstacle) => {
+          const cached = cachedObstacleClearances.get(obstacle)
+          if (cached !== undefined) return cached
+          const value = Math.min(
             ...beforeCopper
               .filter(
                 (part) =>
@@ -688,8 +708,10 @@ export const repairNodeClearance = ({
                   ),
               )
               .map((part) => distanceToObstacle(part, obstacle)),
-          ),
-        )
+          )
+          cachedObstacleClearances.set(obstacle, value)
+          return value
+        })
         for (const scale of [1.01, 2, 4]) {
           const amount = Math.max(0.01, conflict.penetration * scale)
           for (const [x, y] of [
