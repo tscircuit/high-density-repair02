@@ -314,3 +314,6 @@ export class HighDensityRepairSolver extends BaseSolver {
     }
   }
 }
+
+export { buildRepairFramesAsync } from "./high-density-repair-solver/steps/buildRepairFrames"
+export { NodeClearanceCandidateSolver } from "./high-density-repair-solver/functions/repairNodeClearanceAsync"
