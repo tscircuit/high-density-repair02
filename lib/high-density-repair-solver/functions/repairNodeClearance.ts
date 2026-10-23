@@ -218,7 +218,7 @@ export class RouteCopperScenePatternCache {
   }
 }
 
-export type Copper = {
+type Copper = {
   minX: number
   minY: number
   maxX: number
@@ -245,7 +245,7 @@ type Conflict = {
 
 export type Evaluation = { conflicts: Conflict[]; score: number }
 
-export type ObstacleBounds = {
+type ObstacleBounds = {
   minX: number
   minY: number
   maxX: number
@@ -260,7 +260,7 @@ export type NodeClearanceRepairResult = {
   candidateCount: number
 }
 
-export const collectCopper = (route: HdRoute): Copper[] => {
+const collectCopper = (route: HdRoute): Copper[] => {
   const points = route.route ?? []
   const copper: Copper[] = []
   for (let index = 1; index < points.length; index++) {
@@ -311,7 +311,7 @@ export const collectCopper = (route: HdRoute): Copper[] => {
   return copper
 }
 
-export const evaluate = (
+const evaluate = (
   routes: HdRoute[],
   clearance: number,
   obstacles: Obstacle[],
@@ -578,10 +578,7 @@ export const hasNodeClearanceRegression = (
   )
 }
 
-export const distanceToObstacle = (
-  copper: Copper,
-  obstacle: Obstacle,
-): number => {
+const distanceToObstacle = (copper: Copper, obstacle: Obstacle): number => {
   if (
     !obstacle.center ||
     obstacle.width === undefined ||
@@ -647,7 +644,7 @@ export const getRouteObstacleClearance = (
   )
 }
 
-export const moveCopper = (
+const moveCopper = (
   route: HdRoute,
   copper: Copper,
   dx: number,
@@ -924,3 +921,288 @@ export const repairNodeClearance = ({
 export type NodeClearanceRepairParams = Parameters<
   typeof repairNodeClearance
 >[0]
+
+export type NodeClearanceCandidateProbeResult = NodeClearanceRepairResult & {
+  evaluation: Evaluation
+  improved: boolean
+}
+
+type CandidateCaches = {
+  geometryCache: WeakMap<HdRoute, Copper[]>
+  spatialPatternCache: RouteCopperScenePatternCache
+  obstacleClearanceCache: WeakMap<HdRoute, Map<Obstacle, number>>
+  obstacleBoundsCache: WeakMap<Obstacle, ObstacleBounds>
+  boundaryViolationCache: WeakMap<HdRoute, number>
+  routeNetCache: WeakMap<HdRoute, Set<string | undefined>>
+}
+
+function createCandidateCaches(): CandidateCaches {
+  return {
+    geometryCache: new WeakMap(),
+    spatialPatternCache: new RouteCopperScenePatternCache(),
+    obstacleClearanceCache: new WeakMap(),
+    obstacleBoundsCache: new WeakMap(),
+    boundaryViolationCache: new WeakMap(),
+    routeNetCache: new WeakMap(),
+  }
+}
+
+function scanFirstImprovement(
+  {
+    routes,
+    fixedRoutes = [],
+    boundary,
+    fixedCopperGuard,
+    adjacentObstacles = [],
+    clearanceObstacles = adjacentObstacles,
+    clearance = 0.1,
+    boundaryMargin = 0.2,
+  }: NodeClearanceRepairParams,
+  probe: {
+    start: number
+    end: number
+    evaluation?: Evaluation
+    cancellation?: Int32Array
+  },
+  caches: CandidateCaches,
+): NodeClearanceCandidateProbeResult {
+  let current = routes
+  const {
+    geometryCache,
+    spatialPatternCache,
+    obstacleClearanceCache,
+    obstacleBoundsCache,
+    boundaryViolationCache,
+    routeNetCache,
+  } = caches
+  if (probe.evaluation) {
+    for (const route of [...routes, ...fixedRoutes]) {
+      if (!geometryCache.has(route))
+        geometryCache.set(route, collectCopper(route))
+    }
+  }
+  let evaluation =
+    probe.evaluation ??
+    evaluate(
+      current,
+      clearance,
+      clearanceObstacles,
+      fixedRoutes,
+      undefined,
+      geometryCache,
+      spatialPatternCache,
+      obstacleBoundsCache,
+      routeNetCache,
+    )
+  // Give each initial conflict a full sweep of both copper parts, three
+  // distances and eight directions, with room for a second improving move.
+  const candidateLimit = probe.end
+  const result: NodeClearanceRepairResult = {
+    routes,
+    initialConflictCount: evaluation.conflicts.length,
+    finalConflictCount: evaluation.conflicts.length,
+    candidateCount: 0,
+  }
+  if (evaluation.conflicts.length && result.candidateCount < candidateLimit) {
+    const currentPenetrations = new Map(
+      evaluation.conflicts.map((conflict) => [
+        conflict.key,
+        conflict.penetration,
+      ]),
+    )
+    for (const conflict of evaluation.conflicts) {
+      for (const [routeIndex, copper] of [
+        [conflict.firstRoute, conflict.first],
+        [conflict.secondRoute, conflict.second],
+      ] as const) {
+        if (routeIndex < 0 || routeIndex >= current.length) continue
+        if (result.candidateCount + 24 <= probe.start) {
+          result.candidateCount += 24
+          continue
+        }
+        const before = current[routeIndex]!
+        const names = new Set(
+          [before.connectionName, before.rootConnectionName].filter(Boolean),
+        )
+        const foreignObstacles = clearanceObstacles.filter(
+          (obstacle) => !obstacle.connectedTo?.some((name) => names.has(name)),
+        )
+        // evaluate() has already cached every route in the current state.
+        const beforeCopper = geometryCache.get(before)!
+        let boundaryViolations = boundaryViolationCache.get(before)
+        if (boundaryViolations === undefined) {
+          boundaryViolations = findInteriorDiagonalSegmentsInBufferZone(
+            [before],
+            boundary,
+            boundaryMargin,
+          ).length
+          boundaryViolationCache.set(before, boundaryViolations)
+        }
+        let cachedObstacleClearances = obstacleClearanceCache.get(before)
+        if (!cachedObstacleClearances) {
+          cachedObstacleClearances = new Map()
+          obstacleClearanceCache.set(before, cachedObstacleClearances)
+        }
+        const obstacleClearances = foreignObstacles.map((obstacle) => {
+          const cached = cachedObstacleClearances.get(obstacle)
+          if (cached !== undefined) return cached
+          const value = Math.min(
+            ...beforeCopper
+              .filter(
+                (part) =>
+                  !obstacle.zLayers ||
+                  obstacle.zLayers.some(
+                    (z) => z >= part.minZ && z <= part.maxZ,
+                  ),
+              )
+              .map((part) => distanceToObstacle(part, obstacle)),
+          )
+          cachedObstacleClearances.set(obstacle, value)
+          return value
+        })
+        for (const scale of [1.01, 2, 4]) {
+          const amount = Math.max(0.01, conflict.penetration * scale)
+          for (const [x, y] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+            [Math.SQRT1_2, Math.SQRT1_2],
+            [-Math.SQRT1_2, Math.SQRT1_2],
+            [Math.SQRT1_2, -Math.SQRT1_2],
+            [-Math.SQRT1_2, -Math.SQRT1_2],
+          ]) {
+            if (result.candidateCount >= candidateLimit) break
+            if (
+              probe.cancellation &&
+              Atomics.load(probe.cancellation, 0) !== 0
+            ) {
+              return {
+                ...result,
+                routes: current,
+                finalConflictCount: evaluation.conflicts.length,
+                evaluation,
+                improved: false,
+              }
+            }
+            result.candidateCount++
+            if (result.candidateCount <= probe.start) continue
+            const moved = moveCopper(
+              before,
+              copper,
+              x! * amount,
+              y! * amount,
+              boundary,
+            )
+            if (!moved) continue
+            if (
+              findInteriorDiagonalSegmentsInBufferZone(
+                [moved],
+                boundary,
+                boundaryMargin,
+              ).length > boundaryViolations
+            )
+              continue
+            const candidate = [...current]
+            candidate[routeIndex] = moved
+            const next = evaluate(
+              candidate,
+              clearance,
+              clearanceObstacles,
+              fixedRoutes,
+              { evaluation, changedRoute: routeIndex, routes: current },
+              geometryCache,
+              spatialPatternCache,
+              obstacleBoundsCache,
+              routeNetCache,
+            )
+            if (
+              next.conflicts.length > evaluation.conflicts.length ||
+              next.score >= evaluation.score - EPSILON ** 2
+            )
+              continue
+            if (
+              next.conflicts.some(
+                (contact) =>
+                  contact.penetration >
+                  (currentPenetrations.get(contact.key) ?? 0) + EPSILON,
+              )
+            )
+              continue
+            if (
+              !fixedCopperGuard.allows(current, candidate, [routeIndex], false)
+            )
+              continue
+            const afterCopper = geometryCache.get(moved)!
+            if (
+              foreignObstacles.some(
+                (obstacle, index) =>
+                  Math.min(
+                    ...afterCopper
+                      .filter(
+                        (part) =>
+                          !obstacle.zLayers ||
+                          obstacle.zLayers.some(
+                            (z) => z >= part.minZ && z <= part.maxZ,
+                          ),
+                      )
+                      .map((part) => distanceToObstacle(part, obstacle)),
+                  ) <
+                  Math.min(clearance, obstacleClearances[index]!) - EPSILON,
+              )
+            )
+              continue
+            current = candidate
+            evaluation = next
+            return {
+              ...result,
+              routes: current,
+              finalConflictCount: evaluation.conflicts.length,
+              evaluation,
+              improved: true,
+            }
+          }
+          if (result.candidateCount >= candidateLimit) break
+        }
+        if (result.candidateCount >= candidateLimit) break
+      }
+      if (result.candidateCount >= candidateLimit) break
+    }
+  }
+  return {
+    ...result,
+    routes: current,
+    finalConflictCount: evaluation.conflicts.length,
+    evaluation,
+    improved: false,
+  }
+}
+
+/** A probe's routes and evaluation stay fixed while its independent ranges run. */
+export function createNodeClearanceCandidateProbe(
+  params: NodeClearanceRepairParams,
+  evaluation?: Evaluation,
+): {
+  evaluation: Evaluation
+  scan: (
+    start: number,
+    end: number,
+    cancellation?: Int32Array,
+  ) => NodeClearanceCandidateProbeResult
+} {
+  const caches = createCandidateCaches()
+  const initialized = scanFirstImprovement(
+    params,
+    { start: 0, end: 0, evaluation },
+    caches,
+  )
+  return {
+    evaluation: initialized.evaluation,
+    scan: (start, end, cancellation): NodeClearanceCandidateProbeResult =>
+      scanFirstImprovement(
+        params,
+        { start, end, cancellation, evaluation: initialized.evaluation },
+        caches,
+      ),
+  }
+}
