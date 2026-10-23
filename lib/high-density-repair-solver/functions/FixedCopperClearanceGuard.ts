@@ -88,6 +88,14 @@ export class FixedCopperClearanceGuard {
     }))
   }
 
+  getConstructorParams(): [HdRoute[], number, Obstacle[]] {
+    return [
+      this.fixedCopper.map(({ route }) => route),
+      this.minimumClearance,
+      this.obstacles,
+    ]
+  }
+
   allows(
     currentRoutes: HdRoute[],
     candidateRoutes: HdRoute[],

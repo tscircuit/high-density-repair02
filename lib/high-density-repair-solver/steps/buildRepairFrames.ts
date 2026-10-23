@@ -1,5 +1,11 @@
+import type { SolverRuntimeExecutor } from "@tscircuit/solver-utils"
 import { synchronizeRouteVias } from "../functions/synchronizeRouteVias"
-import { repairNodeClearance } from "../functions/repairNodeClearance"
+import {
+  repairNodeClearance,
+  type NodeClearanceRepairResult,
+  type NodeClearanceRepairParams,
+} from "../functions/repairNodeClearance"
+import { repairNodeClearanceAsync } from "../functions/repairNodeClearanceAsync"
 import { FixedCopperClearanceGuard } from "../functions/FixedCopperClearanceGuard"
 import { clampRoutePointsToBoundary } from "../functions/clampRoutePointsToBoundary"
 import { cloneRoute } from "../functions/cloneRoute"
@@ -205,12 +211,16 @@ const getSidesForPass = (pass: number) => {
   return rotated
 }
 
-export const buildRepairFrames = (
+function* buildRepairFramesSteps(
   sample: DatasetSample | undefined,
   requestedMargin: number | undefined,
   captureProgressFrames = false,
   repairBoundaryDiagonals = true,
-): BuildRepairFramesResult => {
+): Generator<
+  NodeClearanceRepairParams,
+  BuildRepairFramesResult,
+  NodeClearanceRepairResult
+> {
   const boundary = getBoundaryRect(sample?.nodeWithPortPoints)
   const inputRoutes = (sample?.nodeHdRoutes ?? []).map(synchronizeRouteVias)
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
@@ -334,7 +344,7 @@ export const buildRepairFrames = (
     })
   }
 
-  const clearanceRepair = repairNodeClearance({
+  const clearanceRepair = yield {
     fixedRoutes: sample?.fixedHdRoutes,
     routes: repairedRoutes,
     boundary,
@@ -342,7 +352,7 @@ export const buildRepairFrames = (
     adjacentObstacles: sample?.adjacentObstacles,
     clearanceObstacles: sample?.clearanceObstacles,
     boundaryMargin: margin,
-  })
+  }
   repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)
 
   frames.push(
@@ -365,4 +375,37 @@ export const buildRepairFrames = (
       nodeClearanceCandidateCount: clearanceRepair.candidateCount,
     },
   }
+}
+
+export function buildRepairFrames(
+  ...params: Parameters<typeof buildRepairFramesSteps>
+): BuildRepairFramesResult {
+  const steps = buildRepairFramesSteps(...params)
+  const prepared = steps.next()
+  if (prepared.done) return prepared.value
+  const result = steps.next(repairNodeClearance(prepared.value))
+  if (!result.done) throw new Error("Repair frame preparation yielded twice")
+  return result.value
+}
+
+export async function buildRepairFramesAsync(
+  sample: DatasetSample | undefined,
+  requestedMargin: number | undefined,
+  runtime: SolverRuntimeExecutor,
+  captureProgressFrames = false,
+  repairBoundaryDiagonals = true,
+): Promise<BuildRepairFramesResult> {
+  const steps = buildRepairFramesSteps(
+    sample,
+    requestedMargin,
+    captureProgressFrames,
+    repairBoundaryDiagonals,
+  )
+  const prepared = steps.next()
+  if (prepared.done) return prepared.value
+  const result = steps.next(
+    await repairNodeClearanceAsync(prepared.value, runtime),
+  )
+  if (!result.done) throw new Error("Repair frame preparation yielded twice")
+  return result.value
 }

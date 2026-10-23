@@ -19,11 +19,11 @@
     "build:site": "cosmos-export"
   },
   "dependencies": {
-    "flatbush": "^4.6.2"
+    "flatbush": "^4.6.2",
+    "@tscircuit/solver-utils": "^0.0.23"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
-    "@tscircuit/solver-utils": "^0.0.18",
     "@types/bun": "latest",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
