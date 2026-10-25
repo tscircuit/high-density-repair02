@@ -1,0 +1,161 @@
+{
+  "nodeWithPortPoints": {
+    "capacityMeshNodeId": "cmn_67",
+    "center": { "x": 6.35, "y": 7.630000000000001 },
+    "width": 0.8399999999999999,
+    "height": 2.5200000000000005,
+    "portPoints": [
+      {
+        "x": 6.515,
+        "y": 6.37,
+        "z": 0,
+        "connectionName": "source_trace_18__source_net_18_mst0",
+        "portPointId": "ce1649_pp0_z0::0",
+        "nextPortPointId": "ce1651_pp1_z1::1"
+      },
+      {
+        "x": 6.442499999999999,
+        "y": 6.37,
+        "z": 1,
+        "connectionName": "source_trace_18__source_net_18_mst0",
+        "portPointId": "ce1651_pp1_z1::1",
+        "prevPortPointId": "ce1649_pp0_z0::0"
+      },
+      {
+        "x": 5.93,
+        "y": 6.57,
+        "z": 0,
+        "connectionName": "source_trace_18__source_net_18_mst1",
+        "portPointId": "ce1642_pp0_z0::0",
+        "nextPortPointId": "ce1649_pp0_z0::0"
+      },
+      {
+        "x": 6.515,
+        "y": 6.37,
+        "z": 0,
+        "connectionName": "source_trace_18__source_net_18_mst1",
+        "portPointId": "ce1649_pp0_z0::0",
+        "prevPortPointId": "ce1642_pp0_z0::0"
+      },
+      {
+        "x": 5.93,
+        "y": 8.68,
+        "z": 0,
+        "connectionName": "source_trace_32__source_net_32",
+        "portPointId": "ce1646_pp0_z0::0",
+        "nextPortPointId": "ce1656_pp0_z0::0"
+      },
+      {
+        "x": 6.77,
+        "y": 8.68,
+        "z": 0,
+        "connectionName": "source_trace_32__source_net_32",
+        "portPointId": "ce1656_pp0_z0::0",
+        "prevPortPointId": "ce1646_pp0_z0::0"
+      },
+      {
+        "x": 5.93,
+        "y": 6.57,
+        "z": 2,
+        "connectionName": "source_trace_31__source_net_31",
+        "portPointId": "ce1639_pp0_z2::2",
+        "nextPortPointId": "ce1652_pp0_z2::2"
+      },
+      {
+        "x": 6.77,
+        "y": 6.57,
+        "z": 2,
+        "connectionName": "source_trace_31__source_net_31",
+        "portPointId": "ce1652_pp0_z2::2",
+        "prevPortPointId": "ce1639_pp0_z2::2"
+      }
+    ]
+  },
+  "nodeHdRoutes": [
+    {
+      "capacityMeshNodeId": "cmn_67",
+      "connectionName": "source_trace_31__source_net_31",
+      "rootConnectionName": "source_trace_31",
+      "route": [
+        { "x": 5.93, "y": 6.57, "z": 2 },
+        { "x": 5.93, "y": 6.6, "z": 2 },
+        { "x": 6.108, "y": 6.609, "z": 2 },
+        { "x": 6.3, "y": 6.622, "z": 2 },
+        { "x": 6.497, "y": 6.654, "z": 2 },
+        { "x": 6.7, "y": 6.6, "z": 2 },
+        { "x": 6.77, "y": 6.57, "z": 2 }
+      ],
+      "traceThickness": 0.1,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "cmn_67",
+      "connectionName": "source_trace_32__source_net_32",
+      "rootConnectionName": "source_trace_32",
+      "route": [
+        { "x": 5.93, "y": 8.68, "z": 0 },
+        { "x": 5.93, "y": 8.7, "z": 0 },
+        { "x": 6.118, "y": 8.616, "z": 0 },
+        { "x": 6.304, "y": 8.594, "z": 0 },
+        { "x": 6.494, "y": 8.615, "z": 0 },
+        { "x": 6.7, "y": 8.7, "z": 0 },
+        { "x": 6.77, "y": 8.68, "z": 0 }
+      ],
+      "traceThickness": 0.1,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "cmn_67",
+      "connectionName": "source_trace_18__source_net_18_mst1",
+      "rootConnectionName": "source_trace_18",
+      "route": [
+        { "x": 5.93, "y": 6.57, "z": 0 },
+        { "x": 5.93, "y": 6.6, "z": 0 },
+        { "x": 6.11, "y": 6.6, "z": 0 },
+        { "x": 6.303, "y": 6.6, "z": 0 },
+        { "x": 6.5, "y": 6.6, "z": 0 },
+        { "x": 6.515, "y": 6.37, "z": 0 }
+      ],
+      "traceThickness": 0.1,
+      "vias": [],
+      "viaDiameter": 0.3
+    },
+    {
+      "capacityMeshNodeId": "cmn_67",
+      "connectionName": "source_trace_18__source_net_18_mst0",
+      "rootConnectionName": "source_trace_18",
+      "route": [
+        { "x": 6.515, "y": 6.37, "z": 0 },
+        { "x": 6.5, "y": 6.4, "z": 0 },
+        { "x": 6.495, "y": 6.599, "z": 0 },
+        { "x": 6.487, "y": 6.794, "z": 0 },
+        { "x": 6.473, "y": 6.97, "z": 0 },
+        { "x": 6.452, "y": 7.077, "z": 0 },
+        { "x": 6.452, "y": 7.077, "z": 1 },
+        { "x": 6.474, "y": 6.968, "z": 1 },
+        { "x": 6.489, "y": 6.793, "z": 1 },
+        { "x": 6.5, "y": 6.6, "z": 1 },
+        { "x": 6.442, "y": 6.37, "z": 1 }
+      ],
+      "traceThickness": 0.1,
+      "vias": [{ "x": 6.452, "y": 7.077, "diameter": 0.3 }],
+      "viaDiameter": 0.3
+    }
+  ],
+  "adjacentObstacles": [
+    {
+      "type": "rect",
+      "center": { "x": 5.08, "y": 7.62 },
+      "width": 1.7,
+      "height": 1.7
+    },
+    {
+      "type": "rect",
+      "center": { "x": 7.62, "y": 7.62 },
+      "width": 1.7,
+      "height": 1.7
+    }
+  ]
+}
