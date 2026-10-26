@@ -108,7 +108,14 @@ export type VisualizationFrame = {
   }>
 }
 
-export type DatasetSample = {
+export type ViaLayerPolicy = {
+  /** Physical board stack, independent of the layers used by node ports. */
+  layerCount?: number
+  /** When false, drilled vias occupy the complete physical board stack. */
+  allowBlindAndBuriedVias?: boolean
+}
+
+export type DatasetSample = ViaLayerPolicy & {
   nodeWithPortPoints?: {
     capacityMeshNodeId?: string
     center?: XY
