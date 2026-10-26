@@ -1,5 +1,6 @@
 import { DEFAULT_TRACE_THICKNESS, EPSILON } from "../shared/constants"
-import type { HdRoute, Obstacle, XY } from "../shared/types"
+import type { HdRoute, Obstacle, ViaLayerPolicy, XY } from "../shared/types"
+import { getViaLayerSpan } from "./getViaLayerSpan"
 import {
   getRouteObstacleClearance,
   hasNodeClearanceRegression,
@@ -14,7 +15,10 @@ type Copper = {
   maxZ: number
 }
 
-const getCopper = (route: HdRoute): Copper[] => {
+const getCopper = (
+  route: HdRoute,
+  viaLayerPolicy: ViaLayerPolicy,
+): Copper[] => {
   const copper: Copper[] = []
   const points = route.route ?? []
   for (let index = 1; index < points.length; index++) {
@@ -51,8 +55,11 @@ const getCopper = (route: HdRoute): Copper[] => {
       end: via,
       radius:
         (via.diameter ?? route.viaDiameter ?? DEFAULT_TRACE_THICKNESS * 2) / 2,
-      minZ: minZ === Infinity ? 0 : minZ,
-      maxZ: maxZ === -Infinity ? 1 : maxZ,
+      ...getViaLayerSpan(
+        minZ === Infinity ? 0 : minZ,
+        maxZ === -Infinity ? 1 : maxZ,
+        viaLayerPolicy,
+      ),
     })
   }
   return copper
@@ -81,10 +88,11 @@ export class FixedCopperClearanceGuard {
     fixedRoutes: HdRoute[],
     private readonly minimumClearance: number,
     private readonly obstacles: Obstacle[] = [],
+    private readonly viaLayerPolicy: ViaLayerPolicy = {},
   ) {
     this.fixedCopper = fixedRoutes.map((route) => ({
       route,
-      copper: getCopper(route),
+      copper: getCopper(route, this.viaLayerPolicy),
     }))
   }
 
@@ -102,6 +110,7 @@ export class FixedCopperClearanceGuard {
         currentRoutes,
         candidateRoutes,
         this.minimumClearance,
+        this.viaLayerPolicy,
       )
     )
       return false
@@ -111,8 +120,10 @@ export class FixedCopperClearanceGuard {
       const before = currentRoutes[index]
       const after = candidateRoutes[index]
       if (before === after) continue
-      const beforeCopper = this.cache.get(before) ?? getCopper(before)
-      const afterCopper = this.cache.get(after) ?? getCopper(after)
+      const beforeCopper =
+        this.cache.get(before) ?? getCopper(before, this.viaLayerPolicy)
+      const afterCopper =
+        this.cache.get(after) ?? getCopper(after, this.viaLayerPolicy)
       this.cache.set(before, beforeCopper)
       this.cache.set(after, afterCopper)
       const names = new Set(
@@ -120,9 +131,17 @@ export class FixedCopperClearanceGuard {
       )
       for (const obstacle of this.obstacles) {
         if (obstacle.connectedTo?.some((name) => names.has(name))) continue
-        const next = getRouteObstacleClearance(after, obstacle)
+        const next = getRouteObstacleClearance(
+          after,
+          obstacle,
+          this.viaLayerPolicy,
+        )
         if (next >= this.minimumClearance - EPSILON) continue
-        const previous = getRouteObstacleClearance(before, obstacle)
+        const previous = getRouteObstacleClearance(
+          before,
+          obstacle,
+          this.viaLayerPolicy,
+        )
         if (next < Math.min(previous, this.minimumClearance) - EPSILON) {
           return false
         }

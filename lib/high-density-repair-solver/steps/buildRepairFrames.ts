@@ -218,6 +218,10 @@ export const buildRepairFrames = (
     sample?.fixedHdRoutes ?? [],
     Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
     sample?.clearanceObstacles ?? sample?.adjacentObstacles,
+    {
+      layerCount: sample?.layerCount,
+      allowBlindAndBuriedVias: sample?.allowBlindAndBuriedVias,
+    },
   )
   const normalizedRoutes =
     boundary && repairBoundaryDiagonals
@@ -342,6 +346,8 @@ export const buildRepairFrames = (
     adjacentObstacles: sample?.adjacentObstacles,
     clearanceObstacles: sample?.clearanceObstacles,
     boundaryMargin: margin,
+    layerCount: sample?.layerCount,
+    allowBlindAndBuriedVias: sample?.allowBlindAndBuriedVias,
   })
   repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)
 
