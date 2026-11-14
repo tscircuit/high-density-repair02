@@ -23,7 +23,10 @@ bun run start
 ## Quick Usage
 
 ```ts
-import { HighDensityRepairSolver, type DatasetSample } from "high-density-repair02"
+import {
+  HighDensityRepairSolver,
+  type DatasetSample,
+} from "high-density-repair02"
 
 const sample: DatasetSample = {
   nodeWithPortPoints: {},
@@ -37,7 +40,6 @@ console.log(solver.getOutput().repairedRoutes)
 ```
 
 `fixedHdRoutes` supplies immutable nearby traces and vias. Repair candidates preserve their foreign-net copper clearance, including via spans, while allowing existing violations to improve. Supply canonical `rootConnectionName` values for electrically shared copper; fixed routes are never returned as repaired routes.
-
 
 ## Install From GitHub Hash
 

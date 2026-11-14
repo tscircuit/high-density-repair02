@@ -23,7 +23,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
-    "@tscircuit/checks": "^0.0.277",
+    "@tscircuit/checks": "^0.0.278",
+    "@tscircuit/math-utils": "^0.0.39",
     "@tscircuit/solver-utils": "^0.0.18",
     "@types/bun": "latest",
     "@types/node": "^25.5.0",
