@@ -53,8 +53,8 @@ const getCopper = (route: HdRoute): Copper[] => {
       end: via,
       radius:
         (via.diameter ?? route.viaDiameter ?? DEFAULT_TRACE_THICKNESS * 2) / 2,
-      minZ: minZ === Infinity ? 0 : minZ,
-      maxZ: maxZ === -Infinity ? 1 : maxZ,
+      minZ: via.minZ ?? (minZ === Infinity ? 0 : minZ),
+      maxZ: via.maxZ ?? (maxZ === -Infinity ? 1 : maxZ),
       via: true,
     })
   }

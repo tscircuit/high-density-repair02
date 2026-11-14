@@ -23,6 +23,7 @@ import { buildRepairFrames } from "./high-density-repair-solver/steps/buildRepai
 export type {
   DatasetSample,
   HdRoute,
+  HdRouteVia,
   HighDensityRepairSolverParams,
 } from "./high-density-repair-solver/shared/types"
 
