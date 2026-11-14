@@ -15,7 +15,7 @@ on:
         required: false
         type: string
       dataset:
-        description: 'Dataset selection (dataset01, dataset02, or all). Default: all.'
+        description: "Dataset selection (dataset01, dataset02, or all). Default: all."
         required: false
         type: string
       concurrency:

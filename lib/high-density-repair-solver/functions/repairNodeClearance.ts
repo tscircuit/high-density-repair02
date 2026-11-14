@@ -125,7 +125,15 @@ export class RouteCopperScenePatternCache {
         }
       }
       index.finish()
-      scene = { index, routeIndexes, copperIndexes, maxMagnitude, fixedRoutes, queries: [], queryHitCount: 0 }
+      scene = {
+        index,
+        routeIndexes,
+        copperIndexes,
+        maxMagnitude,
+        fixedRoutes,
+        queries: [],
+        queryHitCount: 0,
+      }
       const bytes =
         index.data.byteLength +
         routeIndexes.byteLength +
@@ -171,11 +179,18 @@ export class RouteCopperScenePatternCache {
       const maxY = Math.max(copper.start.y, copper.end.y) + reach + padding
       const cached = scene.queries[changedIndex]
       let hits: number[]
-      if (cached && cached.minX === minX && cached.minY === minY && cached.maxX === maxX && cached.maxY === maxY) {
+      if (
+        cached &&
+        cached.minX === minX &&
+        cached.minY === minY &&
+        cached.maxX === maxX &&
+        cached.maxY === maxY
+      ) {
         hits = cached.hits
       } else {
         hits = scene.index.search(minX, minY, maxX, maxY).sort((a, b) => a - b)
-        const retainedHits = scene.queryHitCount - (cached?.hits.length ?? 0) + hits.length
+        const retainedHits =
+          scene.queryHitCount - (cached?.hits.length ?? 0) + hits.length
         // Bound the extra cache to 65,536 entry IDs per scene. Most candidate
         // moves change only a few segments, so unchanged queries are reused.
         if (retainedHits <= 65_536) {
@@ -259,7 +274,12 @@ const collectCopper = (route: HdRoute): Copper[] => {
       minY: Math.min(start.y, end.y),
       maxX: Math.max(start.x, end.x),
       maxY: Math.max(start.y, end.y),
-      magnitude: 1 + Math.abs(start.x) + Math.abs(start.y) + Math.abs(end.x) + Math.abs(end.y),
+      magnitude:
+        1 +
+        Math.abs(start.x) +
+        Math.abs(start.y) +
+        Math.abs(end.x) +
+        Math.abs(end.y),
       radius: (route.traceThickness ?? DEFAULT_TRACE_THICKNESS) / 2,
       minZ: start.z ?? 0,
       maxZ: start.z ?? 0,
@@ -378,13 +398,24 @@ const evaluate = (
       for (const [obstacleIndex, obstacle] of obstacles.entries()) {
         if (obstacle.connectedTo?.some((name) => names.has(name))) continue
         let bounds = obstacleBoundsCache.get(obstacle)
-        if (!bounds && obstacle.center && obstacle.width !== undefined && obstacle.height !== undefined && obstacle.width >= 0 && obstacle.height >= 0) {
+        if (
+          !bounds &&
+          obstacle.center &&
+          obstacle.width !== undefined &&
+          obstacle.height !== undefined &&
+          obstacle.width >= 0 &&
+          obstacle.height >= 0
+        ) {
           bounds = {
             minX: obstacle.center.x - obstacle.width / 2,
             minY: obstacle.center.y - obstacle.height / 2,
             maxX: obstacle.center.x + obstacle.width / 2,
             maxY: obstacle.center.y + obstacle.height / 2,
-            magnitude: Math.abs(obstacle.center.x) + Math.abs(obstacle.center.y) + Math.abs(obstacle.width) + Math.abs(obstacle.height),
+            magnitude:
+              Math.abs(obstacle.center.x) +
+              Math.abs(obstacle.center.y) +
+              Math.abs(obstacle.width) +
+              Math.abs(obstacle.height),
           }
           obstacleBoundsCache.set(obstacle, bounds)
         }
@@ -399,13 +430,17 @@ const evaluate = (
           // Reject separated AABBs before testing all four rectangle edges.
           if (bounds && clearance + copper.radius >= 0) {
             const reach = clearance + copper.radius
-            const padding = Number.EPSILON * 32 * (copper.magnitude + bounds.magnitude + Math.abs(reach))
+            const padding =
+              Number.EPSILON *
+              32 *
+              (copper.magnitude + bounds.magnitude + Math.abs(reach))
             if (
               copper.minX > bounds.maxX + reach + padding ||
               copper.maxX < bounds.minX - reach - padding ||
               copper.minY > bounds.maxY + reach + padding ||
               copper.maxY < bounds.minY - reach - padding
-            ) continue
+            )
+              continue
           }
           const penetration = clearance - distanceToObstacle(copper, obstacle)
           if (
@@ -429,8 +464,12 @@ const evaluate = (
       }
     }
     const onlyChangedSecond = previous && firstRoute !== previous.changedRoute
-    const firstSecondRoute = onlyChangedSecond ? previous.changedRoute : firstRoute + 1
-    const endSecondRoute = onlyChangedSecond ? previous.changedRoute + 1 : allRoutes.length
+    const firstSecondRoute = onlyChangedSecond
+      ? previous.changedRoute
+      : firstRoute + 1
+    const endSecondRoute = onlyChangedSecond
+      ? previous.changedRoute + 1
+      : allRoutes.length
     for (
       let secondRoute = firstSecondRoute;
       secondRoute < endSecondRoute;
@@ -751,7 +790,11 @@ export const repairNodeClearance = ({
         const beforeCopper = geometryCache.get(before)!
         let boundaryViolations = boundaryViolationCache.get(before)
         if (boundaryViolations === undefined) {
-          boundaryViolations = findInteriorDiagonalSegmentsInBufferZone([before], boundary, boundaryMargin).length
+          boundaryViolations = findInteriorDiagonalSegmentsInBufferZone(
+            [before],
+            boundary,
+            boundaryMargin,
+          ).length
           boundaryViolationCache.set(before, boundaryViolations)
         }
         let cachedObstacleClearances = obstacleClearanceCache.get(before)
