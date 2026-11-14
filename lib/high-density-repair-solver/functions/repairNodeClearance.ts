@@ -315,6 +315,7 @@ const collectCopper = (route: HdRoute): Copper[] => {
 const evaluate = (
   routes: HdRoute[],
   clearance: number,
+  viaCopperClearance: number,
   obstacles: Obstacle[],
   fixedRoutes: HdRoute[] = [],
   previous?: {
@@ -342,7 +343,7 @@ const evaluate = (
         fixedRoutes,
         previous.changedRoute,
         geometries,
-        clearance,
+        Math.max(clearance, viaCopperClearance),
       )
     : undefined
   const conflicts: Conflict[] = previous
@@ -518,7 +519,12 @@ const evaluate = (
             first.start.y === second.start.y
           )
             continue
-          const required = clearance + first.radius + second.radius
+          const required =
+            (!sameNet && first.via && second.via
+              ? viaCopperClearance
+              : clearance) +
+            first.radius +
+            second.radius
           if (
             Math.min(first.start.x, first.end.x) >
               Math.max(second.start.x, second.end.x) + required ||
@@ -566,14 +572,15 @@ export const hasNodeClearanceRegression = (
   before: HdRoute[],
   after: HdRoute[],
   clearance: number,
+  viaCopperClearance = clearance,
 ): boolean => {
+  viaCopperClearance = Math.max(clearance, viaCopperClearance)
   const previous = new Map(
-    evaluate(before, clearance, []).conflicts.map((conflict) => [
-      conflict.key,
-      conflict.penetration,
-    ]),
+    evaluate(before, clearance, viaCopperClearance, []).conflicts.map(
+      (conflict) => [conflict.key, conflict.penetration],
+    ),
   )
-  return evaluate(after, clearance, []).conflicts.some(
+  return evaluate(after, clearance, viaCopperClearance, []).conflicts.some(
     (conflict) =>
       conflict.penetration > (previous.get(conflict.key) ?? 0) + EPSILON,
   )
@@ -730,6 +737,7 @@ export const repairNodeClearance = ({
   adjacentObstacles = [],
   clearanceObstacles = adjacentObstacles,
   clearance = 0.1,
+  viaCopperClearance = clearance,
   boundaryMargin = 0.2,
   maxCandidates,
 }: {
@@ -740,9 +748,11 @@ export const repairNodeClearance = ({
   adjacentObstacles?: Obstacle[]
   clearanceObstacles?: Obstacle[]
   clearance?: number
+  viaCopperClearance?: number
   boundaryMargin?: number
   maxCandidates?: number
 }): NodeClearanceRepairResult => {
+  viaCopperClearance = Math.max(clearance, viaCopperClearance)
   let current = routes
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
   const spatialPatternCache = new RouteCopperScenePatternCache()
@@ -753,6 +763,7 @@ export const repairNodeClearance = ({
   let evaluation = evaluate(
     current,
     clearance,
+    viaCopperClearance,
     clearanceObstacles,
     fixedRoutes,
     undefined,
@@ -863,6 +874,7 @@ export const repairNodeClearance = ({
             const next = evaluate(
               candidate,
               clearance,
+              viaCopperClearance,
               clearanceObstacles,
               fixedRoutes,
               { evaluation, changedRoute: routeIndex, routes: current },

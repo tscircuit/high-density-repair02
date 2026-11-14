@@ -8,6 +8,7 @@ import {
   type DatasetSample,
   type HdRoute,
 } from "../lib"
+import { FixedCopperClearanceGuard } from "../lib/high-density-repair-solver/functions/FixedCopperClearanceGuard"
 
 type XY = { x: number; y: number }
 type Bounds = { minX: number; minY: number; maxX: number; maxY: number }
@@ -17,6 +18,20 @@ const getVia = (route: HdRoute): XY => {
   return points.find(
     (point, index) => index > 0 && point.z !== points[index - 1]!.z,
   )!
+}
+
+const getViaCopper = (route: HdRoute): HdRoute => {
+  const points = route.route!
+  const index = points.findIndex(
+    (point, index) => index > 0 && point.z !== points[index - 1]!.z,
+  )
+  const center = getVia(route)
+  return {
+    connectionName: route.connectionName,
+    viaDiameter: route.viaDiameter,
+    route: points.slice(index - 1, index + 1),
+    vias: [{ x: center.x, y: center.y, diameter: route.viaDiameter }],
+  }
 }
 
 const clip = (start: XY, end: XY, bounds: Bounds): XY[] | undefined => {
@@ -324,6 +339,34 @@ test("ButterStick native node via copper spacing", async (): Promise<void> => {
       original.nodeHdRoutes![index]!.route!.at(-1),
     )
   }
+  const pair = ["source_net_15_mst1", "source_net_5_mst1"].map(
+    (name) => repaired.find((route) => route.connectionName === name)!,
+  )
+  const [first, second] = pair.map(getVia)
+  const gap =
+    Math.hypot(first!.x - second!.x, first!.y - second!.y) -
+    (pair[0]!.viaDiameter! + pair[1]!.viaDiameter!) / 2
+  expect(gap).toBeGreaterThanOrEqual(sample.viaCopperClearance)
+  // An additional via rule cannot weaken the guard's existing copper minimum.
+  const originalPair = pair.map(
+    (route) =>
+      original.nodeHdRoutes!.find(
+        (before) => before.connectionName === route.connectionName,
+      )!,
+  )
+  const guard = new FixedCopperClearanceGuard(
+    [getViaCopper(originalPair[1]!)],
+    sample.viaCopperClearance,
+    [],
+    sample.minClearance,
+  )
+  expect(
+    guard.allows(
+      [getViaCopper(pair[0]!)],
+      [getViaCopper(originalPair[0]!)],
+      [0],
+    ),
+  ).toBe(false)
   const graphics = drawNativeNode(sample, repaired, sample.viaCopperClearance)
   await expect(
     getSvgFromGraphicsObject(graphics, {

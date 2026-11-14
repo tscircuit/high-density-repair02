@@ -219,6 +219,7 @@ export const buildRepairFrames = (
     sample?.minClearance ??
       Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
     sample?.clearanceObstacles ?? sample?.adjacentObstacles,
+    sample?.viaCopperClearance,
   )
   const normalizedRoutes =
     boundary && repairBoundaryDiagonals
@@ -343,6 +344,7 @@ export const buildRepairFrames = (
     adjacentObstacles: sample?.adjacentObstacles,
     clearanceObstacles: sample?.clearanceObstacles,
     clearance: sample?.minClearance,
+    viaCopperClearance: sample?.viaCopperClearance,
     boundaryMargin: margin,
   })
   repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)
