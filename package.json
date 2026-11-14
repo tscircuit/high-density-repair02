@@ -23,19 +23,23 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@tscircuit/checks": "^0.0.277",
     "@tscircuit/solver-utils": "^0.0.18",
     "@types/bun": "latest",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "bun-match-svg": "^0.0.14",
+    "circuit-json": "^0.0.548",
+    "circuit-to-svg": "^0.0.457",
+    "dataset-hd08": "https://github.com/tscircuit/dataset-hd08",
     "graphics-debug": "^0.0.89",
     "react": "^19.2.4",
     "react-cosmos": "^7.2.0",
     "react-cosmos-plugin-vite": "^7.2.0",
     "react-dom": "^19.2.4",
     "typescript": "^5",
-    "vite": "^8.0.2",
-    "dataset-hd08": "https://github.com/tscircuit/dataset-hd08"
+    "vite": "^8.0.2"
   }
 }
