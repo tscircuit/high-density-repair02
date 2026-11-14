@@ -19,7 +19,7 @@ import {
   type NativeRepairFixture,
 } from "./fixtures/apply-native-repair"
 
-test("repro: iMX6 DDR repair stops below the requested copper clearance", async (): Promise<void> => {
+test("iMX6 DDR repair uses the requested copper clearance", async (): Promise<void> => {
   const fixture = JSON.parse(
     gunzipSync(
       readFileSync(
@@ -54,8 +54,8 @@ test("repro: iMX6 DDR repair stops below the requested copper clearance", async 
     circuit.filter((element) => element.type === "source_trace"),
   ).toHaveLength(588)
   const options = { minClearance: fixture.sample.minClearance }
-  expect(checkViaTraceClearance(circuit, options)).toHaveLength(4)
-  expect(checkViasInPads(circuit)).toHaveLength(1)
+  expect(checkViaTraceClearance(circuit, options)).toHaveLength(3)
+  expect(checkViasInPads(circuit)).toHaveLength(0)
   for (const check of [
     checkEachPcbTraceNonOverlapping,
     checkPadTraceClearance,

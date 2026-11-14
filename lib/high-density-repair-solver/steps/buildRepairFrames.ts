@@ -216,7 +216,8 @@ export const buildRepairFrames = (
   const margin = Math.max(requestedMargin ?? 0.4, 0.05)
   const fixedCopperGuard = new FixedCopperClearanceGuard(
     sample?.fixedHdRoutes ?? [],
-    Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
+    sample?.minClearance ??
+      Math.min(margin / 2, TRACE_CLEARANCE_REGRESSION_MAX),
     sample?.clearanceObstacles ?? sample?.adjacentObstacles,
   )
   const normalizedRoutes =
@@ -341,6 +342,7 @@ export const buildRepairFrames = (
     fixedCopperGuard,
     adjacentObstacles: sample?.adjacentObstacles,
     clearanceObstacles: sample?.clearanceObstacles,
+    clearance: sample?.minClearance,
     boundaryMargin: margin,
   })
   repairedRoutes.splice(0, repairedRoutes.length, ...clearanceRepair.routes)

@@ -109,6 +109,8 @@ export type VisualizationFrame = {
 }
 
 export type DatasetSample = {
+  /** Minimum copper edge clearance in millimeters. */
+  minClearance?: number
   nodeWithPortPoints?: {
     capacityMeshNodeId?: string
     center?: XY
