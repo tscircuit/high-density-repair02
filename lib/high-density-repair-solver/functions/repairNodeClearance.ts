@@ -574,6 +574,7 @@ export const hasNodeClearanceRegression = (
   clearance: number,
   viaCopperClearance = clearance,
 ): boolean => {
+  viaCopperClearance = Math.max(clearance, viaCopperClearance)
   const previous = new Map(
     evaluate(before, clearance, viaCopperClearance, []).conflicts.map(
       (conflict) => [conflict.key, conflict.penetration],
@@ -751,6 +752,7 @@ export const repairNodeClearance = ({
   boundaryMargin?: number
   maxCandidates?: number
 }): NodeClearanceRepairResult => {
+  viaCopperClearance = Math.max(clearance, viaCopperClearance)
   let current = routes
   const geometryCache = new WeakMap<HdRoute, Copper[]>()
   const spatialPatternCache = new RouteCopperScenePatternCache()

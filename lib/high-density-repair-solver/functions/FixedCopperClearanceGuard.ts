@@ -91,6 +91,7 @@ export class FixedCopperClearanceGuard {
     private readonly obstacles: Obstacle[] = [],
     private readonly viaCopperClearance = minimumClearance,
   ) {
+    this.viaCopperClearance = Math.max(minimumClearance, viaCopperClearance)
     // Preserve conservative bounds and native round-pad clearance independently.
     this.obstacles = obstacles.flatMap((obstacle) =>
       obstacle.shape === "circle"
