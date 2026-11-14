@@ -5,6 +5,7 @@ import { findInteriorDiagonalSegmentsInBufferZone } from "./findInteriorDiagonal
 import { cloneRoute } from "./cloneRoute"
 import type { FixedCopperClearanceGuard } from "./FixedCopperClearanceGuard"
 import { segmentDistance } from "./segmentDistance"
+import { distancePointToSegment } from "./distancePointToSegment"
 
 type CopperGeometry = {
   start: XY
@@ -585,6 +586,13 @@ const distanceToObstacle = (copper: Copper, obstacle: Obstacle): number => {
     obstacle.height === undefined
   )
     return Infinity
+  if (obstacle.shape === "circle") {
+    return (
+      distancePointToSegment(obstacle.center, copper.start, copper.end) -
+      obstacle.width / 2 -
+      copper.radius
+    )
+  }
   const left = obstacle.center.x - obstacle.width / 2
   const right = obstacle.center.x + obstacle.width / 2
   const bottom = obstacle.center.y - obstacle.height / 2

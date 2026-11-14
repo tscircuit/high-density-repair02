@@ -22,6 +22,7 @@ export type HdRoute = {
 
 export type Obstacle = {
   type?: string
+  shape?: "rect" | "circle"
   center?: XY
   width?: number
   height?: number
