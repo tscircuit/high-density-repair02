@@ -586,13 +586,6 @@ const distanceToObstacle = (copper: Copper, obstacle: Obstacle): number => {
     obstacle.height === undefined
   )
     return Infinity
-  if (obstacle.shape === "circle") {
-    return (
-      distancePointToSegment(obstacle.center, copper.start, copper.end) -
-      obstacle.width / 2 -
-      copper.radius
-    )
-  }
   const left = obstacle.center.x - obstacle.width / 2
   const right = obstacle.center.x + obstacle.width / 2
   const bottom = obstacle.center.y - obstacle.height / 2
@@ -648,7 +641,15 @@ export const getRouteObstacleClearance = (
       obstacle.zLayers.some((z) => z >= part.minZ && z <= part.maxZ),
   )
   return Math.min(
-    ...relevantCopper.map((part) => distanceToObstacle(part, obstacle)),
+    ...relevantCopper.map((part) =>
+      obstacle.shape === "circle" &&
+      obstacle.center &&
+      obstacle.width !== undefined
+        ? distancePointToSegment(obstacle.center, part.start, part.end) -
+          obstacle.width / 2 -
+          part.radius
+        : distanceToObstacle(part, obstacle),
+    ),
   )
 }
 
