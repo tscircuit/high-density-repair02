@@ -12,6 +12,7 @@ type Copper = {
   radius: number
   minZ: number
   maxZ: number
+  via: boolean
 }
 
 const getCopper = (route: HdRoute): Copper[] => {
@@ -27,6 +28,7 @@ const getCopper = (route: HdRoute): Copper[] => {
       radius: (route.traceThickness ?? DEFAULT_TRACE_THICKNESS) / 2,
       minZ: start.z ?? 0,
       maxZ: start.z ?? 0,
+      via: false,
     })
   }
   for (const via of route.vias ?? []) {
@@ -53,14 +55,20 @@ const getCopper = (route: HdRoute): Copper[] => {
         (via.diameter ?? route.viaDiameter ?? DEFAULT_TRACE_THICKNESS * 2) / 2,
       minZ: minZ === Infinity ? 0 : minZ,
       maxZ: maxZ === -Infinity ? 1 : maxZ,
+      via: true,
     })
   }
   return copper
 }
 
-const clearanceToCopper = (geometry: Copper[], obstacle: Copper): number => {
+const clearanceToCopper = (
+  geometry: Copper[],
+  obstacle: Copper,
+  via?: boolean,
+): number => {
   let clearance = Infinity
   for (const copper of geometry) {
+    if (via !== undefined && copper.via !== via) continue
     if (copper.maxZ < obstacle.minZ || obstacle.maxZ < copper.minZ) continue
     clearance = Math.min(
       clearance,
@@ -81,6 +89,7 @@ export class FixedCopperClearanceGuard {
     fixedRoutes: HdRoute[],
     private readonly minimumClearance: number,
     private readonly obstacles: Obstacle[] = [],
+    private readonly viaCopperClearance = minimumClearance,
   ) {
     // Preserve conservative bounds and native round-pad clearance independently.
     this.obstacles = obstacles.flatMap((obstacle) =>
@@ -108,6 +117,7 @@ export class FixedCopperClearanceGuard {
         currentRoutes,
         candidateRoutes,
         this.minimumClearance,
+        this.viaCopperClearance,
       )
     )
       return false
@@ -140,11 +150,26 @@ export class FixedCopperClearanceGuard {
         )
           continue
         for (const obstacle of fixed.copper) {
-          const next = clearanceToCopper(afterCopper, obstacle)
-          if (next >= this.minimumClearance - EPSILON) continue
-          const previous = clearanceToCopper(beforeCopper, obstacle)
-          if (next < Math.min(previous, this.minimumClearance) - EPSILON) {
-            return false
+          const constraintCount =
+            obstacle.via && this.viaCopperClearance !== this.minimumClearance
+              ? 2
+              : 1
+          for (
+            let constraintIndex = 0;
+            constraintIndex < constraintCount;
+            constraintIndex++
+          ) {
+            const via =
+              constraintCount === 2 ? constraintIndex === 1 : undefined
+            const minimum = via
+              ? this.viaCopperClearance
+              : this.minimumClearance
+            const next = clearanceToCopper(afterCopper, obstacle, via)
+            if (next >= minimum - EPSILON) continue
+            const previous = clearanceToCopper(beforeCopper, obstacle, via)
+            if (next < Math.min(previous, minimum) - EPSILON) {
+              return false
+            }
           }
         }
       }

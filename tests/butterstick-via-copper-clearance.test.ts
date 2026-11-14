@@ -324,6 +324,14 @@ test("ButterStick native node via copper spacing", async (): Promise<void> => {
       original.nodeHdRoutes![index]!.route!.at(-1),
     )
   }
+  const pair = ["source_net_15_mst1", "source_net_5_mst1"].map(
+    (name) => repaired.find((route) => route.connectionName === name)!,
+  )
+  const [first, second] = pair.map(getVia)
+  const gap =
+    Math.hypot(first!.x - second!.x, first!.y - second!.y) -
+    (pair[0]!.viaDiameter! + pair[1]!.viaDiameter!) / 2
+  expect(gap).toBeGreaterThanOrEqual(sample.viaCopperClearance)
   const graphics = drawNativeNode(sample, repaired, sample.viaCopperClearance)
   await expect(
     getSvgFromGraphicsObject(graphics, {
