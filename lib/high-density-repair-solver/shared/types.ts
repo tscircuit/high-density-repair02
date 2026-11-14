@@ -22,6 +22,7 @@ export type HdRoute = {
 
 export type Obstacle = {
   type?: string
+  shape?: "rect" | "circle"
   center?: XY
   width?: number
   height?: number
@@ -109,6 +110,8 @@ export type VisualizationFrame = {
 }
 
 export type DatasetSample = {
+  /** Minimum copper edge clearance in millimeters. */
+  minClearance?: number
   nodeWithPortPoints?: {
     capacityMeshNodeId?: string
     center?: XY
