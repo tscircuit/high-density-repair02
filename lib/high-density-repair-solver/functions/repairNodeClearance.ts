@@ -8,6 +8,8 @@ import { segmentDistance } from "./segmentDistance"
 import { distancePointToSegment } from "./distancePointToSegment"
 
 type CopperGeometry = {
+  minZ?: number
+  maxZ?: number
   start: XY
   end: XY
   radius: number
@@ -202,6 +204,16 @@ export class RouteCopperScenePatternCache {
       for (const hit of hits) {
         const routeIndex = scene.routeIndexes[hit]!
         const copperIndex = scene.copperIndexes[hit]!
+        const other = geometries[routeIndex]![copperIndex]!
+        if (
+          (copper.maxZ !== undefined &&
+            other.minZ !== undefined &&
+            copper.maxZ < other.minZ) ||
+          (other.maxZ !== undefined &&
+            copper.minZ !== undefined &&
+            other.maxZ < copper.minZ)
+        )
+          continue
         let byFirstCopper = pairs.get(routeIndex)
         if (!byFirstCopper) {
           byFirstCopper = []
