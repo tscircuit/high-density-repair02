@@ -8,6 +8,13 @@ export type PortPoint = XY & {
   z?: number
 }
 
+/** Explicit physical layer span; omitted bounds retain route-based inference. */
+export type HdRouteVia = XY & {
+  diameter?: number
+  minZ?: number
+  maxZ?: number
+}
+
 export type HdRoute = {
   capacityMeshNodeId?: string
   connectionName?: string
@@ -16,7 +23,7 @@ export type HdRoute = {
   connectedPadSides?: BoundarySide[]
   route?: RoutePoint[]
   traceThickness?: number
-  vias?: Array<{ x: number; y: number; diameter?: number }>
+  vias?: HdRouteVia[]
   viaDiameter?: number
 }
 
