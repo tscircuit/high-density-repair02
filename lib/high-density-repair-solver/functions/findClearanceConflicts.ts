@@ -31,6 +31,24 @@ const getPointIndexKey = (indexes: number[]): string => {
 
 type ConflictLayer = "top" | "bottom" | "via"
 
+const getRouteNetNames = (route: HdRoute | undefined): string[] => {
+  if (!route) return []
+  const names = [route.connectionName, route.rootConnectionName].filter(
+    (name): name is string => Boolean(name),
+  )
+  return Array.from(new Set(names))
+}
+
+const areRoutesSameNet = (
+  firstRoute: HdRoute | undefined,
+  secondRoute: HdRoute | undefined,
+) => {
+  const firstNames = getRouteNetNames(firstRoute)
+  const secondNames = getRouteNetNames(secondRoute)
+  if (firstNames.length === 0 || secondNames.length === 0) return false
+  return firstNames.some((name) => secondNames.includes(name))
+}
+
 export type ClearanceConflict = {
   routeIndexes: [number, number]
   layers: [ConflictLayer, ConflictLayer]
@@ -292,7 +310,14 @@ export const findClearanceConflicts = (
           ) {
             continue
           }
-          if (segmentsShareEndpoint(first, second)) continue
+          if (
+            segmentsShareEndpoint(first, second) &&
+            areRoutesSameNet(
+              routes[first.routeIndex],
+              routes[second.routeIndex],
+            )
+          )
+            continue
           if (!segmentBoxesOverlap(first, second, margin)) continue
 
           const minDistanceAllowed =

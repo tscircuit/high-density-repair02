@@ -22,8 +22,9 @@
     "flatbush": "^4.6.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.8",
+    "@biomejs/biome": "2.4.10",
     "@tscircuit/checks": "^0.0.278",
+    "@tscircuit/circuit-json-util": "0.0.131",
     "@tscircuit/math-utils": "^0.0.39",
     "@tscircuit/solver-utils": "^0.0.18",
     "@types/bun": "latest",
