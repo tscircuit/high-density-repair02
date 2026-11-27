@@ -189,12 +189,8 @@
       },
       "width": 0.62,
       "height": 0.735,
-      "zLayers": [
-        3
-      ],
-      "connectedTo": [
-        "connectivity_net55"
-      ]
+      "zLayers": [3],
+      "connectedTo": ["connectivity_net55"]
     },
     {
       "type": "rect",
@@ -205,12 +201,8 @@
       },
       "width": 0.35,
       "height": 0.35,
-      "zLayers": [
-        0
-      ],
-      "connectedTo": [
-        "connectivity_net127"
-      ]
+      "zLayers": [0],
+      "connectedTo": ["connectivity_net127"]
     },
     {
       "type": "rect",
@@ -221,12 +213,8 @@
       },
       "width": 0.35,
       "height": 0.35,
-      "zLayers": [
-        0
-      ],
-      "connectedTo": [
-        "connectivity_net128"
-      ]
+      "zLayers": [0],
+      "connectedTo": ["connectivity_net128"]
     },
     {
       "type": "rect",
@@ -237,12 +225,8 @@
       },
       "width": 0.35,
       "height": 0.35,
-      "zLayers": [
-        0
-      ],
-      "connectedTo": [
-        "connectivity_net24"
-      ]
+      "zLayers": [0],
+      "connectedTo": ["connectivity_net24"]
     },
     {
       "type": "rect",
@@ -253,12 +237,8 @@
       },
       "width": 0.35,
       "height": 0.35,
-      "zLayers": [
-        0
-      ],
-      "connectedTo": [
-        "connectivity_net23"
-      ]
+      "zLayers": [0],
+      "connectedTo": ["connectivity_net23"]
     }
   ],
   "adjacentObstacles": [
