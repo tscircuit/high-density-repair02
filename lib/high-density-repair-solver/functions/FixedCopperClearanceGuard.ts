@@ -136,11 +136,15 @@ export class FixedCopperClearanceGuard {
         [before.connectionName, before.rootConnectionName].filter(Boolean),
       )
       for (const obstacle of this.obstacles) {
-        if (obstacle.connectedTo?.some((name) => names.has(name))) continue
-        const next = getRouteObstacleClearance(after, obstacle)
-        if (next >= this.minimumClearance - EPSILON) continue
-        const previous = getRouteObstacleClearance(before, obstacle)
-        if (next < Math.min(previous, this.minimumClearance) - EPSILON) {
+        const connected =
+          obstacle.connectedTo?.some((name) => names.has(name)) ?? false
+        // Same-net traces may enter their pad. A repair must still preserve
+        // an existing via's separation instead of introducing via-in-pad.
+        const requiredClearance = connected ? 0 : this.minimumClearance
+        const next = getRouteObstacleClearance(after, obstacle, connected)
+        if (next >= requiredClearance - EPSILON) continue
+        const previous = getRouteObstacleClearance(before, obstacle, connected)
+        if (next < Math.min(previous, requiredClearance) - EPSILON) {
           return false
         }
       }
