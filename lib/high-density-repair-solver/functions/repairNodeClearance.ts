@@ -653,11 +653,13 @@ const distanceToObstacle = (copper: Copper, obstacle: Obstacle): number => {
 export const getRouteObstacleClearance = (
   route: HdRoute,
   obstacle: Obstacle,
+  viaOnly = false,
 ): number => {
   const relevantCopper = collectCopper(route).filter(
     (part) =>
-      !obstacle.zLayers ||
-      obstacle.zLayers.some((z) => z >= part.minZ && z <= part.maxZ),
+      (!viaOnly || part.via) &&
+      (!obstacle.zLayers ||
+        obstacle.zLayers.some((z) => z >= part.minZ && z <= part.maxZ)),
   )
   return Math.min(
     ...relevantCopper.map((part) =>
