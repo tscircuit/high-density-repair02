@@ -24,6 +24,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
     "@tscircuit/checks": "^0.0.278",
+    "@tscircuit/circuit-json-util": "0.0.114",
     "@tscircuit/math-utils": "^0.0.39",
     "@tscircuit/solver-utils": "^0.0.18",
     "@types/bun": "latest",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "bun-match-svg": "^0.0.14",
     "circuit-json": "^0.0.548",
+    "circuit-json-to-connectivity-map": "0.0.36",
     "circuit-to-svg": "^0.0.457",
     "dataset-hd08": "https://github.com/tscircuit/dataset-hd08",
     "graphics-debug": "^0.0.89",
